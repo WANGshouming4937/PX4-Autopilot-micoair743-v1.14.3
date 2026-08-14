@@ -49,6 +49,7 @@
 
 #include <drivers/device/device.h>
 #include <drivers/drv_hrt.h>
+#include <drivers/drv_rfly.h> //DEdit
 #include <drivers/drv_io_heater.h>
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_sbus.h>
@@ -1315,6 +1316,81 @@ int PX4IO::ioctl(file *filep, int cmd, unsigned long arg)
 
 	/* regular ioctl? */
 	switch (cmd) {
+
+//DEdit
+	case PWM_SERVO_SET_UPDATE_RATE:
+		/* set the requested alternate rate */
+		ret = io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_PWM_ALTRATE, arg);
+		break;
+
+	case PWM_SERVO_SET_SELECT_UPDATE_RATE: {
+
+			/* blindly clear the PWM update alarm - might be set for some other reason */
+			io_reg_set(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_ALARMS, PX4IO_P_STATUS_ALARMS_PWM_ERROR);
+
+			/* attempt to set the rate map */
+			io_reg_set(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_PWM_RATES, arg);
+
+			/* check that the changes took */
+			uint16_t alarms = io_reg_get(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_ALARMS);
+
+			if (alarms & PX4IO_P_STATUS_ALARMS_PWM_ERROR) {
+				ret = -EINVAL;
+				io_reg_set(PX4IO_PAGE_STATUS, PX4IO_P_STATUS_ALARMS, PX4IO_P_STATUS_ALARMS_PWM_ERROR);
+				PX4_ERR("failed setting PWM rate on IO");
+			}
+
+			break;
+		}
+
+	case PWM_SERVO_ARM:
+		/* set the 'armed' bit */
+		ret = io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING, 0, PX4IO_P_SETUP_ARMING_FMU_ARMED);
+		break;
+
+	case PWM_SERVO_SET_ARM_OK:
+		/* set the 'OK to arm' bit */
+		ret = io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING, 0, PX4IO_P_SETUP_ARMING_IO_ARM_OK);
+		break;
+
+	case PWM_SERVO_CLEAR_ARM_OK:
+		/* clear the 'OK to arm' bit */
+		ret = io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING, PX4IO_P_SETUP_ARMING_IO_ARM_OK, 0);
+		break;
+
+	case PWM_SERVO_DISARM:
+		/* clear the 'armed' bit */
+		ret = io_reg_modify(PX4IO_PAGE_SETUP, PX4IO_P_SETUP_ARMING, PX4IO_P_SETUP_ARMING_FMU_ARMED, 0);
+		break;
+
+	case PWM_SERVO_SET(0) ... PWM_SERVO_SET(7): {
+
+			/* TODO: we could go lower for e.g. TurboPWM */
+			unsigned channel = cmd - PWM_SERVO_SET(0);
+
+			/* PWM needs to be either 0 or in the valid range. */
+			if ((arg != 0) && ((channel >= 8) ||
+					   (arg < 90) ||
+					   (arg > 2500))) {
+				ret = -EINVAL;
+
+			} else {
+				if (true /*!_test_fmu_fail && _motor_test.in_test_mode*/) {
+					/* send a direct PWM value */
+					ret = io_reg_set(PX4IO_PAGE_DIRECT_PWM, channel, arg);
+
+				} else {
+					/* Just silently accept the ioctl without doing anything
+					 * in test mode. */
+					ret = OK;
+				}
+			}
+
+			break;
+		}
+
+
+//DEdit
 	case DSM_BIND_START:
 		/* bind a DSM receiver */
 		ret = dsm_bind_ioctl(arg);

@@ -1456,6 +1456,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("MOUNT_ORIENTATION", 10.0f);
 		configure_stream_local("OBSTACLE_DISTANCE", 10.0f);
 		configure_stream_local("ODOMETRY", 30.0f);
+		configure_stream_local("ACTUATOR_CONTROL_TARGET", 20.0f);//DEdit
+		configure_stream_local("SIMULINK_MOTORS_OUTPUTS", 20.0f);//wshEdit
+		configure_stream_local("SIMULINK_SERVOS_OUTPUTS", 20.0f);//wshEdit
 
 		configure_stream_local("ADSB_VEHICLE", unlimited_rate);
 		configure_stream_local("ATTITUDE_QUATERNION", 50.0f);
@@ -1528,6 +1531,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("MOUNT_ORIENTATION", 10.0f);
 		configure_stream_local("OBSTACLE_DISTANCE", 10.0f);
 		configure_stream_local("ODOMETRY", 30.0f);
+		configure_stream_local("ACTUATOR_CONTROL_TARGET", 20.0f);//DEdit
+		configure_stream_local("SIMULINK_MOTORS_OUTPUTS", 20.0f);//wshEdit
+		configure_stream_local("SIMULINK_SERVOS_OUTPUTS", 20.0f);//wshEdit
 
 		configure_stream_local("ADSB_VEHICLE", unlimited_rate);
 		configure_stream_local("ATTITUDE_TARGET", 2.0f);
@@ -1604,6 +1610,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("DISTANCE_SENSOR", 10.0f);
 		configure_stream_local("MOUNT_ORIENTATION", 10.0f);
 		configure_stream_local("ODOMETRY", 30.0f);
+		configure_stream_local("ACTUATOR_CONTROL_TARGET", 20.0f);//DEdit
+		configure_stream_local("SIMULINK_MOTORS_OUTPUTS", 20.0f);//wshEdit
+		configure_stream_local("SIMULINK_SERVOS_OUTPUTS", 20.0f);//wshEdit
 
 		configure_stream_local("ADSB_VEHICLE", unlimited_rate);
 		configure_stream_local("ALTITUDE", 10.0f);
@@ -1694,6 +1703,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("MOUNT_ORIENTATION", 10.0f);
 		configure_stream_local("OBSTACLE_DISTANCE", 10.0f);
 		configure_stream_local("ODOMETRY", 30.0f);
+		configure_stream_local("ACTUATOR_CONTROL_TARGET", 20.0f);//DEdit
+		configure_stream_local("SIMULINK_MOTORS_OUTPUTS", 20.0f);//wshEdit
+		configure_stream_local("SIMULINK_SERVOS_OUTPUTS", 20.0f);//wshEdit
 		configure_stream_local("GIMBAL_DEVICE_ATTITUDE_STATUS", 1.0f);
 		configure_stream_local("GIMBAL_MANAGER_STATUS", 0.5f);
 		configure_stream_local("GIMBAL_DEVICE_SET_ATTITUDE", 5.0f);

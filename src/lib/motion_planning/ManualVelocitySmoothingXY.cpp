@@ -108,10 +108,19 @@ void ManualVelocitySmoothingXY::checkPositionLock(const Vector2f &velocity_targe
 	} else {
 		// Unlock position
 		if (_position_lock_active) {
-			// Start the trajectory at the current velocity setpoint
-			_trajectory[0].setCurrentVelocity(_velocity_setpoint_feedback(0));
-			_trajectory[1].setCurrentVelocity(_velocity_setpoint_feedback(1));
-			_state.v = _velocity_setpoint_feedback;
+			//wsh edited
+			// // Start the trajectory at the current velocity setpoint
+			// _trajectory[0].setCurrentVelocity(_velocity_setpoint_feedback(0));
+			// _trajectory[1].setCurrentVelocity(_velocity_setpoint_feedback(1));
+			// _state.v = _velocity_setpoint_feedback;
+			// Start the trajectory at the current velocity setpoint if the velocity controller publishes feedback.
+			// If external controllers do not publish vehicle_local_position_setpoint, keep the smoothing state continuous.
+			if (_velocity_setpoint_feedback.isAllFinite()) {
+				_trajectory[0].setCurrentVelocity(_velocity_setpoint_feedback(0));
+				_trajectory[1].setCurrentVelocity(_velocity_setpoint_feedback(1));
+				_state.v = _velocity_setpoint_feedback;
+			}
+			//wsh edited
 			resetPositionLock();
 		}
 

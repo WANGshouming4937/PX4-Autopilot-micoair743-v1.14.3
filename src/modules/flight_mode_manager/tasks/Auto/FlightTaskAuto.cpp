@@ -36,6 +36,9 @@
 
 #include "FlightTaskAuto.hpp"
 #include <mathlib/mathlib.h>
+#include <px4_platform_common/events.h>
+#include <px4_platform_common/log.h>
+#include <systemlib/mavlink_log.h>
 #include <float.h>
 
 using namespace matrix;
@@ -74,6 +77,8 @@ bool FlightTaskAuto::activate(const trajectory_setpoint_s &last_setpoint)
 	_updateTrajConstraints();
 	_is_emergency_braking_active = false;
 	_time_last_cruise_speed_override = 0;
+	_airspeed_constraint_state = MissionAirspeedState::Normal;
+	_time_last_airspeed_warning = 0;
 
 	return ret;
 }
@@ -93,6 +98,7 @@ bool FlightTaskAuto::updateInitialize()
 	_sub_home_position.update();
 	_sub_vehicle_status.update();
 	_sub_triplet_setpoint.update();
+	_sub_airspeed_estimator.update();
 
 	// require valid reference and valid target
 	ret = ret && _evaluateGlobalReference() && _evaluateTriplets();
@@ -172,6 +178,11 @@ bool FlightTaskAuto::update()
 
 	const bool should_wait_for_yaw_align = _param_mpc_yaw_mode.get() == 4 && !_yaw_sp_aligned;
 	const bool force_zero_velocity_setpoint = should_wait_for_yaw_align || _is_emergency_braking_active;
+
+	// Mission airspeed is only used to derive the cruise ground-speed constraint.
+	// PositionSmoothing remains responsible for acceleration, jerk, waypoint braking and cornering.
+	_updateWindEstimate();
+	_updateCruiseSpeed();
 	_updateTrajConstraints();
 	PositionSmoothing::PositionSmoothingSetpoints smoothed_setpoints;
 	_position_smoothing.generateSetpoints(
@@ -192,9 +203,14 @@ bool FlightTaskAuto::update()
 	_want_takeoff = smoothed_setpoints.unsmoothed_velocity(2) < -0.3f;
 
 	if (!PX4_ISFINITE(_yaw_setpoint) && !PX4_ISFINITE(_yawspeed_setpoint)) {
-		// no valid heading -> generate heading in this flight task
-		// Generate heading along trajectory if possible, otherwise hold the previous yaw setpoint
-		if (!_generateHeadingAlongTraj()) {
+		// No valid heading -> generate heading in this flight task.
+		// MPC_YAW_MODE=5 uses desired airspeed direction; all other generated-heading modes
+		// keep the original ground-trajectory behavior.
+		const bool heading_generated = (_param_mpc_yaw_mode.get() == 5)
+					       ? _generateHeadingAlongAirspeed()
+					       : _generateHeadingAlongTraj();
+
+		if (!heading_generated) {
 			_yaw_setpoint = PX4_ISFINITE(_yaw_sp_prev) ? _yaw_sp_prev : _yaw;
 		}
 	}
@@ -213,7 +229,9 @@ bool FlightTaskAuto::update()
 
 void FlightTaskAuto::overrideCruiseSpeed(const float cruise_speed_m_s)
 {
-	_mc_cruise_speed = cruise_speed_m_s;
+	// Store the raw Mission speed command. Its interpretation (ground speed or airspeed)
+	// is selected by MPC_MIS_SPD_MODE in _updateCruiseSpeed().
+	_mission_cruise_speed = cruise_speed_m_s;
 	_time_last_cruise_speed_override = hrt_absolute_time();
 }
 
@@ -365,21 +383,33 @@ bool FlightTaskAuto::_evaluateTriplets()
 
 	_type = (WaypointType)_sub_triplet_setpoint.get().current.type;
 
-	// Prioritize cruise speed from the triplet when it's valid and more recent than the previously commanded cruise speed
+	// Keep the raw Mission speed separate from the final ground-speed constraint.
+	// MPC_MIS_SPD_MODE=0: raw Mission speed is ground speed (original behavior).
+	// MPC_MIS_SPD_MODE=1: raw Mission speed is cruising airspeed in AUTO_MISSION POSITION legs.
 	const float cruise_speed_from_triplet = _sub_triplet_setpoint.get().current.cruising_speed;
 
 	if (PX4_ISFINITE(cruise_speed_from_triplet)
 	    && (_sub_triplet_setpoint.get().current.timestamp > _time_last_cruise_speed_override)) {
-		_mc_cruise_speed = cruise_speed_from_triplet;
+		_mission_cruise_speed = cruise_speed_from_triplet;
 	}
 
-	if (!PX4_ISFINITE(_mc_cruise_speed) || (_mc_cruise_speed < FLT_EPSILON)) {
-		// If no speed is planned use the default cruise speed as limit
-		_mc_cruise_speed = _param_mpc_xy_cruise.get();
+	if (!PX4_ISFINITE(_mission_cruise_speed) || (_mission_cruise_speed < FLT_EPSILON)) {
+		_mission_cruise_speed = _param_mpc_xy_cruise.get();
 	}
 
-	// Ensure planned cruise speed is below the maximum such that the smooth trajectory doesn't get capped
-	_mc_cruise_speed = math::min(_mc_cruise_speed, _param_mpc_xy_vel_max.get());
+	if (_param_mpc_mis_spd_mode.get() == 1) {
+		_mc_cruise_airspeed = _mission_cruise_speed;
+
+		// Initialize the ground-speed state without applying the Vg limit to Va.
+		if (!PX4_ISFINITE(_mc_cruise_speed)) {
+			_mc_cruise_speed = math::min(_mission_cruise_speed, _param_mpc_xy_vel_max.get());
+		}
+
+	} else {
+		_mc_cruise_airspeed = NAN;
+		// Original ground-speed behavior. The maximum-speed constraint is a Vg constraint.
+		_mc_cruise_speed = math::min(_mission_cruise_speed, _param_mpc_xy_vel_max.get());
+	}
 
 	// Temporary target variable where we save the local reprojection of the latest navigator current triplet.
 	Vector3f tmp_target;
@@ -554,9 +584,10 @@ void FlightTaskAuto::_set_heading_from_mode()
 
 		break;
 
-	case 3: // Along trajectory.
-		// The heading depends on the kind of setpoint generation. This needs to be implemented
-		// in the subclasses where the velocity setpoints are generated.
+	case 3: // Along ground trajectory.
+	case 5: // Along desired airspeed direction.
+		// These headings depend on generated velocity setpoints and are calculated after
+		// PositionSmoothing in _generateHeadingAlongTraj()/_generateHeadingAlongAirspeed().
 		v.setAll(NAN);
 		break;
 	}
@@ -769,7 +800,7 @@ bool FlightTaskAuto::_generateHeadingAlongTraj()
 	Vector2f vel_sp_xy(_velocity_setpoint);
 	Vector2f traj_to_target = Vector2f(_target) - Vector2f(_position);
 
-	if ((vel_sp_xy.longerThan(.1f)) &&
+	if ((vel_sp_xy.longerThan(2.0f)) &&
 	    (traj_to_target.longerThan(2.f))) {
 		// Generate heading from velocity vector, only if it is long enough
 		// and if the drone is far enough from the target
@@ -778,6 +809,279 @@ bool FlightTaskAuto::_generateHeadingAlongTraj()
 	}
 
 	return res;
+}
+
+bool FlightTaskAuto::_generateHeadingAlongAirspeed()
+{
+	bool res = false;
+	const Vector2f ground_velocity_sp(_velocity_setpoint);
+	const Vector2f air_velocity_sp = ground_velocity_sp - _wind_velocity_xy;
+	const Vector2f traj_to_target = Vector2f(_target) - Vector2f(_position);
+
+	if (air_velocity_sp.longerThan(2.0f) && traj_to_target.longerThan(2.f)) {
+		_compute_heading_from_2D_vector(_yaw_setpoint, air_velocity_sp);
+		res = true;
+	}
+
+	return res;
+}
+
+void FlightTaskAuto::_updateWindEstimate()
+{
+	const airspeed_estimator_s &wind_est = _sub_airspeed_estimator.get();
+	const hrt_abstime now = hrt_absolute_time();
+
+	const bool timestamp_valid = wind_est.timestamp > 0 && now >= wind_est.timestamp;
+	const bool fresh = timestamp_valid && (now - wind_est.timestamp <= WIND_ESTIMATE_TIMEOUT_US);
+	const bool wind_finite = PX4_ISFINITE(wind_est.v_wind_est[0]) && PX4_ISFINITE(wind_est.v_wind_est[1]);
+	const bool airspeed_finite = PX4_ISFINITE(wind_est.airspeed_est);
+
+	// update_enable is the estimator-level validity gate. ekf_update and algebraic_valid are
+	// intentionally not used as cycle-by-cycle gates because either may legitimately be false
+	// on a cycle without meaning that the retained wind state is invalid.
+	const bool estimator_valid = fresh && wind_finite && airspeed_finite && (wind_est.update_enable > 0.5f);
+	_wind_estimate_valid = estimator_valid;
+
+	// Follow a finite, fresh estimator output even while update_enable is false. This allows an
+	// estimator that decays its state towards zero to cooperate with the validity blend below.
+	if (fresh && wind_finite) {
+		_wind_velocity_xy_raw = Vector2f(wind_est.v_wind_est[0], wind_est.v_wind_est[1]);
+	}
+
+	const float blend_target = estimator_valid ? 1.f : 0.f;
+	const float alpha = (_deltatime > FLT_EPSILON)
+			    ? math::constrain(_deltatime / (WIND_VALIDITY_TAU_S + _deltatime), 0.f, 1.f)
+			    : 1.f;
+
+	_wind_valid_blend += alpha * (blend_target - _wind_valid_blend);
+	_wind_valid_blend = math::constrain(_wind_valid_blend, 0.f, 1.f);
+	_wind_velocity_xy = _wind_velocity_xy_raw * _wind_valid_blend;
+}
+
+float FlightTaskAuto::_airspeedToGroundspeed(float airspeed_sp, const Vector2f &track_direction,
+		MissionAirspeedState &state) const
+{
+	if (!PX4_ISFINITE(airspeed_sp) || airspeed_sp <= FLT_EPSILON
+	    || !track_direction.isAllFinite() || !track_direction.longerThan(1e-3f)
+	    || !_wind_velocity_xy.isAllFinite()) {
+		return airspeed_sp;
+	}
+
+	const Vector2f track_unit = track_direction.unit_or_zero();
+	const float wind_parallel = _wind_velocity_xy * track_unit;
+	const Vector2f wind_perpendicular = _wind_velocity_xy - wind_parallel * track_unit;
+	const float wind_perpendicular_sq = wind_perpendicular.norm_squared();
+	const float wind_speed = _wind_velocity_xy.norm();
+	const float airspeed_max = math::max(_param_mpc_mis_aspd_max.get(), 0.1f);
+	const float ground_speed_max = math::max(_param_mpc_xy_vel_max.get(), 0.f);
+	const float ground_speed_min = math::min(MIN_GROUND_PROGRESS_SPEED, ground_speed_max);
+
+	// The minimum airspeed achievable while preserving the current ground-track direction
+	// and respecting the usable ground-speed interval [Vg_min, Vg_max].
+	const float ground_speed_min_air = math::constrain(wind_parallel, ground_speed_min, ground_speed_max);
+	const float track_min_airspeed_sq = (ground_speed_min_air - wind_parallel)
+					       * (ground_speed_min_air - wind_parallel) + wind_perpendicular_sq;
+	const float track_min_airspeed = sqrtf(math::max(track_min_airspeed_sq, 0.f));
+
+	// Even if the track were abandoned, the minimum possible airspeed under the ground-speed
+	// limit is max(|wind|-Vg_max, 0). In V1 both infeasible states are warning-only: the
+	// Mission track is retained and we use the best-effort ground speed on that track.
+	if (_wind_estimate_valid) {
+		const float globally_min_airspeed = math::max(wind_speed - ground_speed_max, 0.f);
+
+		if (globally_min_airspeed > airspeed_max + 1e-3f) {
+			state = MissionAirspeedState::FullyInfeasible;
+
+		} else if (track_min_airspeed > airspeed_max + 1e-3f) {
+			state = MissionAirspeedState::TrackInfeasible;
+		}
+	}
+
+	const float radicand = airspeed_sp * airspeed_sp - wind_perpendicular_sq;
+
+	if (PX4_ISFINITE(radicand) && radicand >= 0.f) {
+		const float root = sqrtf(radicand);
+		const float ground_speed_high = wind_parallel + root;
+		const float ground_speed_low = wind_parallel - root;
+
+		// Prefer the larger positive-progress solution. If it violates Vg_max, the second
+		// root can still satisfy the same airspeed exactly (typical in a strong tailwind).
+		if (PX4_ISFINITE(ground_speed_high)
+		    && ground_speed_high >= ground_speed_min
+		    && ground_speed_high <= ground_speed_max) {
+			return ground_speed_high;
+		}
+
+		if (PX4_ISFINITE(ground_speed_low)
+		    && ground_speed_low >= ground_speed_min
+		    && ground_speed_low <= ground_speed_max) {
+			return ground_speed_low;
+		}
+	}
+
+	// The requested cruise airspeed cannot be matched exactly while preserving both the
+	// current track and the Vg bounds. If the safety envelope itself is still feasible this
+	// is CruiseLimited. For infeasible states keep their higher-severity classification.
+	if (state == MissionAirspeedState::Normal) {
+		state = MissionAirspeedState::CruiseLimited;
+	}
+
+	// In an infeasible state V1 keeps the original Mission track and chooses the allowed
+	// ground speed that minimizes actual airspeed. It only warns; it does not enter drift mode.
+	if (state == MissionAirspeedState::TrackInfeasible
+	    || state == MissionAirspeedState::FullyInfeasible) {
+		return ground_speed_min_air;
+	}
+
+	// CruiseLimited but still inside the safety envelope: choose the feasible Vg that makes
+	// actual airspeed as close as possible to the constrained cruise-air-speed command.
+	const float airspeed_at_vg_min = sqrtf((ground_speed_min - wind_parallel) * (ground_speed_min - wind_parallel)
+					     + wind_perpendicular_sq);
+	const float airspeed_at_vg_max = sqrtf((ground_speed_max - wind_parallel) * (ground_speed_max - wind_parallel)
+					     + wind_perpendicular_sq);
+
+	if (airspeed_sp < track_min_airspeed) {
+		return ground_speed_min_air;
+	}
+
+	return (fabsf(airspeed_at_vg_max - airspeed_sp) <= fabsf(airspeed_at_vg_min - airspeed_sp))
+	       ? ground_speed_max : ground_speed_min;
+}
+
+void FlightTaskAuto::_updateCruiseSpeed()
+{
+	float mission_speed = _mission_cruise_speed;
+
+	if (!PX4_ISFINITE(mission_speed) || mission_speed < FLT_EPSILON) {
+		mission_speed = _param_mpc_xy_cruise.get();
+	}
+
+	const float original_ground_speed = math::min(mission_speed, _param_mpc_xy_vel_max.get());
+	const bool in_auto_mission = _sub_vehicle_status.get().nav_state == vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION;
+	const bool next_is_land = _sub_triplet_setpoint.get().next.valid
+				  && (_sub_triplet_setpoint.get().next.type == position_setpoint_s::SETPOINT_TYPE_LAND);
+	const bool use_airspeed_cruise = (_param_mpc_mis_spd_mode.get() == 1)
+					 && in_auto_mission
+					 && (_type == WaypointType::position)
+					 && !next_is_land
+					 && (_current_state == State::none)
+					 && !_is_emergency_braking_active
+					 && !isTargetModified();
+
+	if (!use_airspeed_cruise) {
+		// Takeoff, Land, move-to-land approach, Loiter, off-track recovery, obstacle-modified
+		// targets and non-Mission Auto modes keep the original ground-speed semantics.
+		_mc_cruise_airspeed = NAN;
+		_mc_cruise_speed = original_ground_speed;
+		_updateAirspeedConstraintWarning(MissionAirspeedState::Normal);
+		return;
+	}
+
+	const float airspeed_max = math::max(_param_mpc_mis_aspd_max.get(), 0.1f);
+	_mc_cruise_airspeed = math::min(mission_speed, airspeed_max);
+
+	MissionAirspeedState new_state = (mission_speed > airspeed_max + 1e-3f)
+					 ? MissionAirspeedState::CruiseLimited
+					 : MissionAirspeedState::Normal;
+
+	Vector2f track_direction;
+	track_direction.setAll(NAN);
+
+	// Use the previous cycle's unsmoothed trajectory direction when available. It follows
+	// corner smoothing better than yaw or a raw waypoint bearing. Fall back to target direction.
+	const Vector2f unsmoothed_velocity_xy(_unsmoothed_velocity_setpoint);
+
+	if (unsmoothed_velocity_xy.isAllFinite() && unsmoothed_velocity_xy.longerThan(.2f)) {
+		track_direction = unsmoothed_velocity_xy.unit_or_zero();
+
+	} else {
+		const Vector2f to_target = Vector2f(_target) - Vector2f(_position);
+
+		if (to_target.isAllFinite() && to_target.longerThan(.2f)) {
+			track_direction = to_target.unit_or_zero();
+		}
+	}
+
+	float ground_speed_target = _mc_cruise_airspeed;
+
+	if (track_direction.isAllFinite()) {
+		ground_speed_target = _airspeedToGroundspeed(_mc_cruise_airspeed, track_direction, new_state);
+	}
+
+	// MPC_XY_VEL_MAX is deliberately applied after Va -> Vg conversion: it constrains Vg, not Va.
+	const float ground_speed_max = math::max(_param_mpc_xy_vel_max.get(), 0.f);
+	const float ground_speed_min = math::min(MIN_GROUND_PROGRESS_SPEED, ground_speed_max);
+	const float ground_speed_limited = math::constrain(ground_speed_target, ground_speed_min, ground_speed_max);
+
+	if (fabsf(ground_speed_limited - ground_speed_target) > 1e-3f
+	    && new_state == MissionAirspeedState::Normal) {
+		new_state = MissionAirspeedState::CruiseLimited;
+	}
+
+	ground_speed_target = ground_speed_limited;
+	_updateAirspeedConstraintWarning(new_state);
+
+	// Filter only the airspeed-derived cruise constraint. The actual trajectory remains subject to
+	// PositionSmoothing acceleration/jerk/braking/corner limits, so airspeed is a cruise policy,
+	// not a hard instantaneous speed command.
+	if (!PX4_ISFINITE(_mc_cruise_speed)) {
+		_mc_cruise_speed = ground_speed_target;
+
+	} else {
+		const float alpha = (_deltatime > FLT_EPSILON)
+				    ? math::constrain(_deltatime / (CRUISE_SPEED_TAU_S + _deltatime), 0.f, 1.f)
+				    : 1.f;
+		_mc_cruise_speed += alpha * (ground_speed_target - _mc_cruise_speed);
+	}
+
+	_mc_cruise_speed = math::constrain(_mc_cruise_speed, ground_speed_min, ground_speed_max);
+}
+
+void FlightTaskAuto::_updateAirspeedConstraintWarning(MissionAirspeedState new_state)
+{
+	const bool infeasible = (new_state == MissionAirspeedState::TrackInfeasible)
+				|| (new_state == MissionAirspeedState::FullyInfeasible);
+	const hrt_abstime now = hrt_absolute_time();
+	const bool state_changed = new_state != _airspeed_constraint_state;
+	const bool repeat_due = infeasible && (_time_last_airspeed_warning == 0
+					       || now - _time_last_airspeed_warning >= AIRSPEED_WARNING_REPEAT_US);
+
+	if (infeasible && (state_changed || repeat_due)) {
+		const float wind_speed = _wind_velocity_xy.norm();
+		const float airspeed_max = _param_mpc_mis_aspd_max.get();
+
+		if (new_state == MissionAirspeedState::FullyInfeasible) {
+			mavlink_log_critical(
+				&_mavlink_log_pub,
+				"Wind exceeds speed capability; continue mission\t");
+			events::send(
+				events::ID("flight_task_auto_airspeed_fully_infeasible"),
+				events::Log::Critical,
+				"Wind exceeds airspeed/groundspeed capability; continuing mission");
+			PX4_ERR("Airspeed limits infeasible W=%.1f VaMax=%.1f",
+				(double)wind_speed,
+				(double)airspeed_max);
+		} else {
+			mavlink_log_warning(
+				&_mavlink_log_pub,
+				"Mission track infeasible due to wind\t");
+			events::send(
+				events::ID("flight_task_auto_airspeed_track_infeasible"),
+				events::Log::Warning,
+				"Mission track infeasible due to wind; continuing mission");
+			PX4_WARN("Airspeed track infeasible W=%.1f VaMax=%.1f",
+				(double)wind_speed,
+				(double)airspeed_max);
+			}
+
+		_time_last_airspeed_warning = now;
+	}
+
+	if (!infeasible) {
+		_time_last_airspeed_warning = 0;
+	}
+
+	_airspeed_constraint_state = new_state;
 }
 
 bool FlightTaskAuto::isTargetModified() const

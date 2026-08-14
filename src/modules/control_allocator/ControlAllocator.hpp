@@ -77,6 +77,8 @@
 #include <uORB/topics/vehicle_thrust_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/failure_detector_status.h>
+#include <uORB/topics/actuator_armed.h> //DaiEdit
+#include <drivers/drv_rfly.h> //DEdit
 
 class ControlAllocator : public ModuleBase<ControlAllocator>, public ModuleParams, public px4::ScheduledWorkItem
 {
@@ -174,6 +176,13 @@ private:
 
 	uORB::Subscription _vehicle_torque_setpoint1_sub{ORB_ID(vehicle_torque_setpoint), 1};  /**< vehicle torque setpoint subscription (2. instance) */
 	uORB::Subscription _vehicle_thrust_setpoint1_sub{ORB_ID(vehicle_thrust_setpoint), 1};	 /**< vehicle thrust setpoint subscription (2. instance) */
+
+	uORB::Subscription _rfly_arm_sub{ORB_ID(actuator_armed_rfly)}; //DaiEdit
+	actuator_armed_s _rfly_arm; //DaiEdit
+	bool _is_ctrl_rfly=DEFAULT_CTRL_RFLY; //DaiEdit
+	bool _is_init=false;//DaiEdit
+	bool _is_io_rfly=DEFAULT_IO_RFLY; //DaiEdit
+	bool _is_sim_rfly=DEFAULT_SIM_RFLY; //DaiEdit
 
 	// Outputs
 	uORB::PublicationMulti<control_allocator_status_s> _control_allocator_status_pub[2] {ORB_ID(control_allocator_status), ORB_ID(control_allocator_status)};

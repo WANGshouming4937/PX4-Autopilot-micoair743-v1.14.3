@@ -122,9 +122,14 @@ void Ekf::controlRangeHeightFusion()
 
 		// determine if we should use height aiding
 		const bool do_conditional_range_aid = (_params.rng_ctrl == RngCtrl::CONDITIONAL) && isConditionalRangeAidSuitable();
-		const bool continuing_conditions_passing = ((_params.rng_ctrl == RngCtrl::ENABLED) || do_conditional_range_aid)
-				&& measurement_valid
-				&& _range_sensor.isDataHealthy();
+
+		const bool do_relaxed_conditional_range_aid =
+			(_params.rng_ctrl == RngCtrl::RELAXED_CONDITIONAL) && isRelaxedConditionalRangeAidSuitable();
+
+		const bool continuing_conditions_passing =
+			((_params.rng_ctrl == RngCtrl::ENABLED) || do_conditional_range_aid || do_relaxed_conditional_range_aid)
+			&& measurement_valid
+			&& _range_sensor.isDataHealthy();
 
 		const bool starting_conditions_passing = continuing_conditions_passing
 				&& isNewestSampleRecent(_time_last_range_buffer_push, 2 * RNG_MAX_INTERVAL)
@@ -173,7 +178,29 @@ void Ekf::controlRangeHeightFusion()
 					_height_sensor_ref = HeightSensor::RANGE;
 					bias_est.setBias(_state.pos(2) + measurement);
 
-				} else if ((_params.height_sensor_ref == HeightSensor::RANGE) && (_params.rng_ctrl != RngCtrl::CONDITIONAL)) {
+				} else if ((_params.height_sensor_ref == HeightSensor::RANGE)
+					   && (_params.rng_ctrl == RngCtrl::RELAXED_CONDITIONAL)) {
+					_height_sensor_ref = HeightSensor::RANGE;
+
+					if (!_control_status.flags.in_air) {
+						// Establish the local vertical datum at zero while on the ground. The
+						// measured ground clearance becomes the fixed range height offset.
+						ECL_INFO("starting relaxed conditional %s height fusion on ground, resetting height",
+							 HGT_SRC_NAME);
+
+						_information_events.flags.reset_hgt_to_rng = true;
+						resetVerticalPositionTo(0.f, measurement_var);
+						bias_est.setBias(measurement);
+
+					} else {
+						// Range aiding can restart in flight as conditions change. Align its bias
+						// to the current EKF height instead of introducing a vertical position jump.
+						ECL_INFO("starting relaxed conditional %s height fusion in air", HGT_SRC_NAME);
+						bias_est.setBias(_state.pos(2) + measurement);
+					}
+
+				} else if ((_params.height_sensor_ref == HeightSensor::RANGE)
+					   && (_params.rng_ctrl == RngCtrl::ENABLED)) {
 					// Range finder is the primary height source, the ground is now the datum used
 					// to compute the local vertical position
 					ECL_INFO("starting %s height fusion, resetting height", HGT_SRC_NAME);
@@ -236,6 +263,49 @@ bool Ekf::isConditionalRangeAidSuitable()
 	}
 
 	return false;
+}
+
+bool Ekf::isRelaxedConditionalRangeAidSuitable()
+{
+	if (!_range_sensor.isHealthy()) {
+		return false;
+	}
+
+	float range_hagl_max = _params.max_hagl_for_range_aid;
+	float max_vel_xy = _params.max_vel_for_range_aid;
+
+	if (!_control_status.flags.rng_hgt) {
+		range_hagl_max *= 0.7f;
+		max_vel_xy *= 0.7f;
+	}
+
+	bool is_below_max_speed = true;
+
+	if (isHorizontalAidingActive()) {
+		is_below_max_speed = !_state.vel.xy().longerThan(max_vel_xy);
+	}
+
+	if (!_control_status.flags.in_air) {
+		// The terrain estimator intentionally uses fake HAGL fusion on the ground,
+		// so isTerrainEstimateValid() is false. Use the range measurement directly
+		// to allow the relaxed mode to establish the ground vertical datum.
+		const bool is_in_range = (_range_sensor.getDistBottom() < range_hagl_max);
+		return is_in_range && is_below_max_speed;
+	}
+
+	if (!isTerrainEstimateValid()) {
+		return false;
+	}
+
+	const float hagl_test_ratio =
+		(_hagl_innov * _hagl_innov / (sq(_params.range_aid_innov_gate) * _hagl_innov_var));
+
+	const float hagl_test_ratio_limit = _control_status.flags.rng_hgt ? 1.f : 0.2f;
+	const bool is_hagl_stable = (hagl_test_ratio < hagl_test_ratio_limit);
+	const float range_hagl = _terrain_vpos - _state.pos(2);
+	const bool is_in_range = (range_hagl < range_hagl_max);
+
+	return is_in_range && is_hagl_stable && is_below_max_speed;
 }
 
 void Ekf::stopRngHgtFusion()

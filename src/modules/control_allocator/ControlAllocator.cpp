@@ -358,6 +358,58 @@ ControlAllocator::Run()
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 	const hrt_abstime now = hrt_absolute_time();
 	const float dt = math::constrain(((now - _last_run) / 1e6f), 0.0002f, 0.02f);
+	//DaiEdit
+	if(!_is_init){ //未初始化
+		_is_init=true;
+		if(_is_ctrl_rfly){
+			_vehicle_torque_setpoint_sub.unregisterCallback();
+			_vehicle_torque_setpoint_sub = uORB::SubscriptionCallbackWorkItem(this, ORB_ID(vehicle_torque_setpoint_rfly));
+			_vehicle_torque_setpoint_sub.registerCallback();
+			_vehicle_thrust_setpoint_sub.unregisterCallback();
+			_vehicle_thrust_setpoint_sub = uORB::SubscriptionCallbackWorkItem(this, ORB_ID(vehicle_thrust_setpoint_rfly));
+			_vehicle_thrust_setpoint_sub.registerCallback();
+
+			_vehicle_torque_setpoint1_sub.unsubscribe();
+			_vehicle_torque_setpoint1_sub=uORB::Subscription{ORB_ID(vehicle_torque_setpoint1_rfly)};
+			_vehicle_thrust_setpoint1_sub.unsubscribe();
+			_vehicle_thrust_setpoint1_sub=uORB::Subscription{ORB_ID(vehicle_thrust_setpoint1_rfly)};
+		}
+	}
+
+	if(_rfly_arm_sub.update(&_rfly_arm)){
+		if(_rfly_arm.prearmed && !_is_ctrl_rfly){ // 如果收到要使用rfly的输出，但是还没有，则进入下面的程序
+			_is_ctrl_rfly=true;
+			_vehicle_torque_setpoint_sub.unregisterCallback();
+			_vehicle_torque_setpoint_sub = uORB::SubscriptionCallbackWorkItem(this, ORB_ID(vehicle_torque_setpoint_rfly));
+			_vehicle_torque_setpoint_sub.registerCallback();
+			_vehicle_thrust_setpoint_sub.unregisterCallback();
+			_vehicle_thrust_setpoint_sub = uORB::SubscriptionCallbackWorkItem(this, ORB_ID(vehicle_thrust_setpoint_rfly));
+			_vehicle_thrust_setpoint_sub.registerCallback();
+
+			_vehicle_torque_setpoint1_sub.unsubscribe();
+			_vehicle_torque_setpoint1_sub=uORB::Subscription{ORB_ID(vehicle_torque_setpoint1_rfly)};
+			_vehicle_thrust_setpoint1_sub.unsubscribe();
+			_vehicle_thrust_setpoint1_sub=uORB::Subscription{ORB_ID(vehicle_thrust_setpoint1_rfly)};
+		}
+
+		if(!_rfly_arm.prearmed && _is_ctrl_rfly){ //如果收到不使用rfly，但是仍在使用，则进入
+			_is_ctrl_rfly=false;
+			_vehicle_torque_setpoint_sub.unregisterCallback();
+			_vehicle_torque_setpoint_sub = uORB::SubscriptionCallbackWorkItem(this, ORB_ID(vehicle_torque_setpoint));
+			_vehicle_torque_setpoint_sub.registerCallback();
+			_vehicle_thrust_setpoint_sub.unregisterCallback();
+			_vehicle_thrust_setpoint_sub = uORB::SubscriptionCallbackWorkItem(this, ORB_ID(vehicle_thrust_setpoint));
+			_vehicle_thrust_setpoint_sub.registerCallback();
+
+			_vehicle_torque_setpoint1_sub.unsubscribe();
+			_vehicle_torque_setpoint1_sub=uORB::Subscription{ORB_ID(vehicle_torque_setpoint), 1};
+			_vehicle_thrust_setpoint1_sub.unsubscribe();
+			_vehicle_thrust_setpoint1_sub=uORB::Subscription{ORB_ID(vehicle_thrust_setpoint), 1};
+		}
+
+	}
+
+	//DaiEdit
 
 	bool do_update = false;
 	vehicle_torque_setpoint_s vehicle_torque_setpoint;

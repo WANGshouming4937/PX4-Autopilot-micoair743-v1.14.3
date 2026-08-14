@@ -722,10 +722,17 @@ PARAM_DEFINE_INT32(EKF2_GPS_CTRL, 7);
  * estimates. It is intended to be used where a vertical takeoff and landing is performed, and horizontal flight does
  * not occur until above EKF2_RNG_A_HMAX.
  *
+ * Relaxed conditional mode: allows range height fusion to start on the ground without a valid
+ * terrain estimate. If range is the configured height reference, the local vertical position is
+ * reset to zero and the measured ground clearance is used as the range height offset. In flight
+ * it uses the conditional height and speed limits with a relaxed HAGL innovation threshold, and
+ * aligns the range bias when fusion restarts instead of resetting vertical position.
+ *
  * @group EKF2
  * @value 0 Disable range fusion
  * @value 1 Enabled (conditional mode)
  * @value 2 Enabled
+ * @value 3 Relaxed conditional
  */
 PARAM_DEFINE_INT32(EKF2_RNG_CTRL, 1);
 

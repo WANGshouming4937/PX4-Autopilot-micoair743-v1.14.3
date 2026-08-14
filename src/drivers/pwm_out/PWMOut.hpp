@@ -40,6 +40,7 @@
 
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
+#include <lib/cdev/CDev.hpp>
 #include <lib/mathlib/mathlib.h>
 #include <lib/mixer_module/mixer_module.hpp>
 #include <lib/perf/perf_counter.h>
@@ -52,8 +53,9 @@
 #include <uORB/topics/parameter_update.h>
 
 using namespace time_literals;
+#define PX4FMU_DEVICE_PATH	"/dev/px4fmu"
 
-class PWMOut final : public ModuleBase<PWMOut>, public OutputModuleInterface
+class PWMOut final : public ModuleBase<PWMOut>, public OutputModuleInterface, public cdev::CDev
 {
 public:
 	PWMOut();
@@ -70,6 +72,7 @@ public:
 
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
+	virtual int	ioctl(file *filp, int cmd, unsigned long arg); //DEdit
 
 	bool updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS],
 			   unsigned num_outputs, unsigned num_control_groups_updated) override;

@@ -35,6 +35,7 @@
 #define HIL_ACTUATOR_CONTROLS_HPP
 
 #include <uORB/topics/actuator_outputs.h>
+#include <drivers/drv_rfly.h> //DEdit
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_status.h>
 
@@ -61,12 +62,45 @@ private:
 	}
 
 	uORB::Subscription _act_sub{ORB_ID(actuator_outputs)};
+
+	uORB::Subscription _rfly_arm_sub{ORB_ID(actuator_armed_rfly)}; //DaiEdit
+	actuator_armed_s _rfly_arm; //DaiEdit
+	bool _is_ctrl_rfly=DEFAULT_CTRL_RFLY; //DaiEdit
+	bool _is_init=false;//DaiEdit
+	bool _is_io_rfly=DEFAULT_IO_RFLY; //DaiEdit
+	bool _is_sim_rfly=DEFAULT_SIM_RFLY; //DaiEdit
+
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 
 	bool send() override
 	{
 		actuator_outputs_s act;
+
+		//DaiEdit
+
+		// if(!_is_init){ //未初始化
+		// 	_is_init=true;
+		// 	if(_is_sim_rfly){
+		// 		_act_sub.unsubscribe();
+		// 		_act_sub=uORB::Subscription{ORB_ID(actuator_outputs_rfly)};
+		// 	}
+		// }
+
+		// if(_rfly_arm_sub.update(&_rfly_arm)){
+		// 	if(_rfly_arm.armed && !_is_sim_rfly){ // 如果收到要使用rfly的输出，但是还没有，则进入下面的程序
+		// 		_is_sim_rfly=true;
+		// 		_act_sub.unsubscribe();
+		// 		_act_sub=uORB::Subscription{ORB_ID(actuator_outputs_rfly)};
+		// 	}
+
+		// 	if(!_rfly_arm.armed && _is_sim_rfly){ //如果收到不使用rfly，但是仍在使用，则进入
+		// 		_is_sim_rfly=false;
+		// 		_act_sub.unsubscribe();
+		// 		_act_sub=uORB::Subscription{ORB_ID(actuator_outputs_sim)};
+		// 	}
+		// }
+		//DaiEdit
 
 		if (_act_sub.update(&act)) {
 			mavlink_hil_actuator_controls_t msg{};
@@ -112,6 +146,82 @@ private:
 			}
 
 			msg.flags = 0;
+
+			// DaiEdit
+			// msg.flags=123;
+			// if(_is_sim_rfly){
+			// 	if(act.output[0]>1){ //如果非归一化的输入，需要重映射
+			// 		unsigned system_type = _mavlink->get_system_type();
+			// 		if (system_type == MAV_TYPE_QUADROTOR ||
+			// 			system_type == MAV_TYPE_HEXAROTOR ||
+			// 			system_type == MAV_TYPE_OCTOROTOR ||
+			// 			system_type == MAV_TYPE_VTOL_TAILSITTER_DUOROTOR ||
+			// 			system_type == MAV_TYPE_VTOL_TAILSITTER_QUADROTOR ||
+			// 			system_type == MAV_TYPE_VTOL_FIXEDROTOR) {
+			// 			unsigned n;
+			// 			switch (system_type) {
+			// 			case MAV_TYPE_QUADROTOR:
+			// 				n = 4;
+			// 				break;
+			// 			case MAV_TYPE_HEXAROTOR:
+			// 				n = 6;
+			// 				break;
+			// 			case MAV_TYPE_VTOL_TAILSITTER_DUOROTOR:
+			// 				n = 2;
+			// 				break;
+			// 			case MAV_TYPE_VTOL_TAILSITTER_QUADROTOR:
+			// 				n = 4;
+			// 				break;
+			// 			case MAV_TYPE_VTOL_FIXEDROTOR:
+			// 				n = 8;
+			// 				break;
+			// 			default:
+			// 				n = 8;
+			// 				break;
+			// 			}
+
+			// 			for (unsigned i = 0; i < 16; i++) {
+			// 				if (act.output[i] > 500) {
+			// 					if (i < n) {
+			// 						/* scale PWM out 900..2100 us to 0..1 for rotors */
+			// 						msg.controls[i] = (act.output[i] - 1000.0f) / 1000.0f;
+
+			// 					} else {
+			// 						/* scale PWM out 900..2100 us to -1..1 for other channels */
+			// 						msg.controls[i] = (act.output[i] - 1500.0f) / 500.0f;
+			// 					}
+			// 				} else {
+			// 					/* send 0 when disarmed and for disabled channels */
+			// 					msg.controls[i] = 0.0f;
+			// 				}
+			// 			}
+
+			// 		} else {
+			// 			/* fixed wing: scale throttle to 0..1 and other channels to -1..1 */
+			// 			for (unsigned i = 0; i < 16; i++) {
+			// 				if (act.output[i] > 500) {
+			// 					if (i != 3) {
+			// 						/* scale PWM out 900..2100 us to -1..1 for normal channels */
+			// 						msg.controls[i] = (act.output[i] - 1500.0f) / 500.0f;
+
+			// 					} else {
+			// 						/* scale PWM out 900..2100 us to 0..1 for throttle */
+			// 						msg.controls[i] = (act.output[i] - 1000.0f) / 1000.0f;
+			// 					}
+
+			// 				} else {
+			// 					/* set 0 for disabled channels */
+			// 					msg.controls[i] = 0.0f;
+			// 				}
+			// 			}
+			// 		}
+			// 	    msg.flags=0;
+			// 	}else{
+			// 	    msg.flags=123;
+			// 	}
+
+			// }
+			// DaiEdit
 
 			mavlink_msg_hil_actuator_controls_send_struct(_mavlink->get_channel(), &msg);
 

@@ -55,6 +55,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/topics/vehicle_status.h>
+#include "streams/ACTUATOR_CONTROL_TARGET.hpp" //DEdit
 
 #include "streams/ACTUATOR_OUTPUT_STATUS.hpp"
 #include "streams/ALTITUDE.hpp"
@@ -369,6 +370,12 @@ static const StreamListItem streams_list[] = {
 #if defined(OPTICAL_FLOW_RAD_HPP)
 	create_stream_list_item<MavlinkStreamOpticalFlowRad>(),
 #endif // OPTICAL_FLOW_RAD_HPP
+
+//DEdit
+// #if defined(ACTUATOR_CONTROL_TARGET_HPP)
+// 	create_stream_list_item<MavlinkStreamActuatorControlTarget>(),
+// #endif // ACTUATOR_CONTROL_TARGET_HPP
+//DEdit
 #if defined(NAMED_VALUE_FLOAT_HPP)
 	create_stream_list_item<MavlinkStreamNamedValueFloat>(),
 #endif // NAMED_VALUE_FLOAT_HPP

@@ -55,6 +55,8 @@ static const FunctionProvider all_function_providers[] = {
 	// Providers higher up take precedence for subscription callback in case there are multiple
 	{OutputFunction::Constant_Min, &FunctionConstantMin::allocate},
 	{OutputFunction::Constant_Max, &FunctionConstantMax::allocate},
+	{OutputFunction::Simulink_Motor1, OutputFunction::Simulink_MotorMax, &FunctionSimulinkMotors::allocate},
+	{OutputFunction::Simulink_Servo1, OutputFunction::Simulink_ServoMax, &FunctionSimulinkServos::allocate},
 	{OutputFunction::Motor1, OutputFunction::MotorMax, &FunctionMotors::allocate},
 	{OutputFunction::Servo1, OutputFunction::ServoMax, &FunctionServos::allocate},
 	{OutputFunction::Offboard_Actuator_Set1, OutputFunction::Offboard_Actuator_Set6, &FunctionActuatorSet::allocate},
@@ -404,6 +406,23 @@ void MixingOutput::unregister()
 
 bool MixingOutput::update()
 {
+
+	//DaiEdit
+
+	// if(_rfly_arm_sub.update(&_rfly_arm)){
+	// 	if(_rfly_arm.ready_to_arm && !_is_io_rfly){
+	// 		_is_io_rfly=true;
+	// 	}
+	// 	if(!_rfly_arm.ready_to_arm && _is_io_rfly){
+	// 		_is_io_rfly=false;
+	// 	}
+	// }
+
+	// if(_is_io_rfly){
+	// 	return true;
+	// }
+
+	//DaiEdit
 	// check arming state
 	if (_armed_sub.update(&_armed)) {
 		_armed.in_esc_calibration_mode &= _support_esc_calibration;
@@ -479,13 +498,17 @@ MixingOutput::limitAndUpdateOutputs(float outputs[MAX_ACTUATORS], bool has_updat
 
 		stop_motors = true;
 
-	} else if (_armed.force_failsafe) {
-		// overwrite outputs in case of force_failsafe with _failsafe_value values
-		for (size_t i = 0; i < _max_num_outputs; i++) {
-			_current_output_value[i] = actualFailsafeValue(i);
-		}
+	}
+	//wsh edited 暂不处理失效情况的强制赋值
+	// else if (_armed.force_failsafe) {
+	// 	// overwrite outputs in case of force_failsafe with _failsafe_value values
+	// 	for (size_t i = 0; i < _max_num_outputs; i++) {
+	// 		_current_output_value[i] = actualFailsafeValue(i);
+	// 	}
 
-	} else {
+	// }
+	//wsh edited
+	else {
 		// the output limit call takes care of out of band errors, NaN and constrains
 		output_limit_calc(_throttle_armed || _actuator_test.inTestMode(), _max_num_outputs, outputs);
 	}

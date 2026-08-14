@@ -62,6 +62,8 @@
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/rfly_ctrl.h>
+#include <uORB/topics/rfly_ext.h>
 #include <uORB/topics/airspeed.h>
 #include <uORB/topics/autotune_attitude_control_status.h>
 #include <uORB/topics/battery_status.h>
@@ -288,6 +290,10 @@ private:
 
 	// ORB publications
 	uORB::Publication<airspeed_s>				_airspeed_pub{ORB_ID(airspeed)};
+	uORB::Publication<rfly_ctrl_s>				_rfly_ctrl_pub{ORB_ID(rfly_ctrl)};
+	uORB::Publication<rfly_ctrl_s>				_rfly_ctrl1_pub{ORB_ID(rfly_ctrl1)};
+	uORB::Publication<rfly_ctrl_s>				_rfly_ctrl2_pub{ORB_ID(rfly_ctrl2)};
+	uORB::Publication<rfly_ext_s>				_rfly_ext_pub{ORB_ID(rfly_ext)};
 	uORB::Publication<battery_status_s>			_battery_pub{ORB_ID(battery_status)};
 	uORB::Publication<camera_status_s>			_camera_status_pub{ORB_ID(camera_status)};
 	uORB::Publication<cellular_status_s>			_cellular_status_pub{ORB_ID(cellular_status)};

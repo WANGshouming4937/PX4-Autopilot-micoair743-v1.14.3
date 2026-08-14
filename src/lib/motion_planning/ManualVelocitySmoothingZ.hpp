@@ -38,6 +38,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <motion_planning/VelocitySmoothing.hpp>
 
 class ManualVelocitySmoothingZ final
@@ -105,8 +106,11 @@ private:
 	bool _position_lock_active{false};
 
 	float _position_setpoint_locked{};
+	//wsh edited
+	//float _velocity_setpoint_feedback{};
+	float _velocity_setpoint_feedback{NAN};
+	//wsh edited
 
-	float _velocity_setpoint_feedback{};
 	float _position_estimate{};
 
 	struct {

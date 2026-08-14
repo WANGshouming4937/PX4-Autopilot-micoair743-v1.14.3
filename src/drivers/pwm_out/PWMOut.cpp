@@ -36,10 +36,17 @@
 #include <px4_platform_common/sem.hpp>
 
 PWMOut::PWMOut() :
-	OutputModuleInterface(MODULE_NAME, px4::wq_configurations::hp_default)
+	OutputModuleInterface(MODULE_NAME, px4::wq_configurations::hp_default), CDev(PX4FMU_DEVICE_PATH)
 {
 	_pwm_mask = ((1u << DIRECT_PWM_OUTPUT_CHANNELS) - 1);
 	_mixing_output.setMaxNumOutputs(DIRECT_PWM_OUTPUT_CHANNELS);
+
+	/* do regular cdev init */
+	int ret = CDev::init();
+
+	if (ret != OK) {
+		PX4_ERR("FAILED registering CDev device");
+	}
 
 	// Getting initial parameter values
 	update_params();
@@ -330,6 +337,46 @@ px4io driver is used for main ones.
 	return 0;
 }
 
+//DEdit
+int PWMOut::ioctl(file *filp, int cmd, unsigned long arg)
+{
+	int ret=OK;
+	switch (cmd) {
+	case PWM_SERVO_ARM:
+		update_pwm_out_state(true);
+		break;
+
+	case PWM_SERVO_SET_ARM_OK:
+	case PWM_SERVO_CLEAR_ARM_OK:
+		break;
+
+	case PWM_SERVO_DISARM:
+		update_pwm_out_state(false);
+		break;
+
+	case PWM_SERVO_SET_UPDATE_RATE:
+	case PWM_SERVO_SET_SELECT_UPDATE_RATE:
+		break;
+	case PWM_SERVO_SET(0) ... PWM_SERVO_SET(7): {
+		if (arg <= 2100) {
+			up_pwm_servo_set(cmd - PWM_SERVO_SET(0), arg);
+
+		} else {
+			ret = -EINVAL;
+		}
+
+		break;
+	}
+
+	default:
+		ret = -ENOTTY;
+		break;
+	}
+
+	return ret;
+}
+
+//DEdit
 extern "C" __EXPORT int pwm_out_main(int argc, char *argv[])
 {
 	return PWMOut::main(argc, argv);

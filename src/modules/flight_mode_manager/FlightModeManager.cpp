@@ -33,6 +33,7 @@
 
 #include "FlightModeManager.hpp"
 
+#include <cmath>
 #include <lib/mathlib/mathlib.h>
 #include <lib/matrix/matrix/math.hpp>
 
@@ -393,11 +394,36 @@ FlightTaskError FlightModeManager::switchTask(FlightTaskIndex new_task_index)
 	// Save current setpoints for the next FlightTask
 	trajectory_setpoint_s last_setpoint = FlightTask::empty_trajectory_setpoint;
 	ekf_reset_counters_s last_reset_counters{};
+	//const FlightTaskIndex previous_task_index = _current_task.index;
 
 	if (isAnyTaskActive()) {
 		last_setpoint = _current_task.task->getTrajectorySetpoint();
 		last_reset_counters = _current_task.task->getResetCounters();
 	}
+
+	// const bool orbit_to_manual_task = previous_task_index == FlightTaskIndex::Orbit
+	// 				  && (new_task_index == FlightTaskIndex::ManualPosition
+	// 				      || new_task_index == FlightTaskIndex::ManualPositionSmoothVel
+	// 				      || new_task_index == FlightTaskIndex::ManualAcceleration
+	// 				      || new_task_index == FlightTaskIndex::ManualAltitude
+	// 				      || new_task_index == FlightTaskIndex::ManualAltitudeSmoothVel);
+
+	// const bool orbit_exit_transition = previous_task_index == FlightTaskIndex::Orbit
+	// 				   && (new_task_index == FlightTaskIndex::Auto
+	// 				       || new_task_index == FlightTaskIndex::ManualPosition
+	// 				       || new_task_index == FlightTaskIndex::ManualPositionSmoothVel
+	// 				       || new_task_index == FlightTaskIndex::ManualAcceleration
+	// 				       || new_task_index == FlightTaskIndex::ManualAltitude
+	// 				       || new_task_index == FlightTaskIndex::ManualAltitudeSmoothVel);
+
+	// if (orbit_exit_transition) {
+	// 	last_setpoint.velocity[0] = 0.f;
+	// 	last_setpoint.velocity[1] = 0.f;
+	// 	last_setpoint.acceleration[0] = 0.f;
+	// 	last_setpoint.acceleration[1] = 0.f;
+	// 	last_setpoint.yaw = NAN;
+	// 	last_setpoint.yawspeed = NAN;
+	// }
 
 	if (_initTask(new_task_index)) {
 		// invalid task

@@ -283,7 +283,13 @@ void ManualControl::Run()
 		}
 
 		_selector.setpoint().timestamp = now;
+		if(_rfly_arm_sub.update(&_rfly_arm)){
+			_is_rc_rfly=_rfly_arm.lockdown;
+		}
+
+		if(!_is_rc_rfly){
 		_manual_control_setpoint_pub.publish(_selector.setpoint());
+		}
 
 		// If it's valid, this should really be valid but better safe than sorry.
 		const int instance = _selector.instance();
@@ -307,7 +313,13 @@ void ManualControl::Run()
 	} else {
 		if (!_published_invalid_once) {
 			_published_invalid_once = true;
+		if(_rfly_arm_sub.update(&_rfly_arm)){
+			_is_rc_rfly=_rfly_arm.lockdown;
+		}
+
+		if(!_is_rc_rfly){
 			_manual_control_setpoint_pub.publish(_selector.setpoint());
+		}
 		}
 
 		_roll_diff.reset();

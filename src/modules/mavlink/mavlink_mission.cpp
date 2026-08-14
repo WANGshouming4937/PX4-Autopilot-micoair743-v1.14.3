@@ -1379,6 +1379,12 @@ MavlinkMissionManager::parse_mavlink_mission_item(const mavlink_mission_item_t *
 			mission_item->loiter_radius = mavlink_mission_item->param3;
 			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
 			break;
+		//wsh
+		case MAV_CMD_NAV_LOITER_TURNS:
+			mission_item->nav_cmd = NAV_CMD_LOITER_TURNS;
+			mission_item->loiter_radius = mavlink_mission_item->param3;
+			mission_item->yaw = wrap_2pi(math::radians(mavlink_mission_item->param4));
+			break;
 
 		case MAV_CMD_NAV_LOITER_TIME:
 			mission_item->nav_cmd = NAV_CMD_LOITER_TIME_LIMIT;

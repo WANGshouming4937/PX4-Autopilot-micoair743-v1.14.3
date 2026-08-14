@@ -42,7 +42,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
+typedef uint16_t orb_id_size_t;
 /**
  * Object metadata.
  */
@@ -51,7 +51,7 @@ struct orb_metadata {
 	const uint16_t o_size;		/**< object size */
 	const uint16_t o_size_no_padding;	/**< object size w/o padding at the end (for logger) */
 	const char *o_fields;		/**< semicolon separated list of fields (with type) */
-	uint8_t o_id;			/**< ORB_ID enum */
+	orb_id_size_t o_id;			/**< ORB_ID enum */
 };
 
 typedef const struct orb_metadata *orb_id_t;

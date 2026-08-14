@@ -44,6 +44,7 @@
 #include "FlightTaskManualAltitudeSmoothVel.hpp"
 #include <uORB/PublicationMulti.hpp>
 #include <uORB/topics/orbit_status.h>
+#include <uORB/topics/airspeed_estimator.h>
 #include <lib/slew_rate/SlewRateYaw.hpp>
 #include <lib/motion_planning/PositionSmoothing.hpp>
 #include <lib/motion_planning/VelocitySmoothing.hpp>
@@ -73,6 +74,12 @@ private:
 	static constexpr float _velocity_max = 10.f;
 	static constexpr float _acceleration_max = 2.f;
 	static constexpr float _horizontal_acceptance_radius = 2.f;
+	static constexpr float _horizontal_acceptance_radius_exit = 3.f;
+	static constexpr hrt_abstime WIND_ESTIMATE_TIMEOUT_US = 500000;
+	static constexpr hrt_abstime AIRSPEED_WARNING_REPEAT_US = 10000000;
+	static constexpr float WIND_VALIDITY_TAU_S = 1.0f;
+	static constexpr float MIN_GROUND_PROGRESS_SPEED = 0.5f;
+	static constexpr float AIRSPEED_FEASIBILITY_EPS = 0.05f;
 
 	/**
 	 * Check the feasibility of orbit parameters with respect to
@@ -104,6 +111,7 @@ private:
 	 * Uses the params
 	 */
 	bool _is_position_on_circle() const;
+	bool _is_position_on_circle_xy(float acceptance_radius) const;
 
 	/** Adjusts radius and speed according to stick input */
 	void _adjustParametersByStick();
@@ -113,26 +121,63 @@ private:
 	void _generate_circle_setpoints();
 	/** generates yaw setpoints to control the vehicle's heading */
 	void _generate_circle_yaw_setpoints();
+	bool _is_yaw_reached(float yaw_setpoint) const;
 
-	float _orbit_velocity{};
+	enum class MissionAirspeedState : uint8_t {
+		Normal = 0,
+		CruiseLimited,
+		TrackInfeasible,
+		FullyInfeasible
+	};
+
+	void _updateWindEstimate();
+	float _airspeedToOrbitGroundspeed(float airspeed_sp,
+					  const matrix::Vector2f &track_direction,
+					  const matrix::Vector2f &radial_velocity,
+					  MissionAirspeedState &state) const;
+	bool _setYawAlongAirspeed(const matrix::Vector2f &ground_velocity_sp);
+	void _updateAirspeedConstraintWarning(MissionAirspeedState new_state);
+
+	float _orbit_speed_command{}; ///< Signed command: Vg when mode 0, Va when mode 1
+	float _orbit_velocity{};      ///< Final signed tangential ground speed
 	float _orbit_radius{};
 	matrix::Vector3f _center; /**< local frame coordinates of the center point */
 
 	bool _in_circle_approach = false;
+	enum class CircleApproachState {
+		AlignToApproachPoint,
+		ApproachCircle,
+		AlignTangent
+	};
+	CircleApproachState _circle_approach_state{CircleApproachState::AlignToApproachPoint};
 	PositionSmoothing _position_smoothing;
 
 	/** yaw behaviour during the orbit flight according to MAVLink's ORBIT_YAW_BEHAVIOUR enum */
-	int _yaw_behaviour = orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TO_CIRCLE_CENTER;
+	int _yaw_behaviour = orbit_status_s::ORBIT_YAW_BEHAVIOUR_HOLD_FRONT_TANGENT_TO_CIRCLE;
 	bool _started_clockwise{true};
 	float _initial_heading = 0.f; /**< the heading of the drone when the orbit command was issued */
 	SlewRateYaw<float> _slew_rate_yaw;
 
+	matrix::Vector2f _wind_velocity_xy_raw{};
+	matrix::Vector2f _wind_velocity_xy{};
+	float _wind_valid_blend{0.f};
+	bool _wind_estimate_valid{false};
+	MissionAirspeedState _airspeed_constraint_state{MissionAirspeedState::Normal};
+	hrt_abstime _time_last_airspeed_warning{0};
+
+	uORB::SubscriptionData<airspeed_estimator_s> _sub_airspeed_estimator{ORB_ID(airspeed_estimator)};
 	orb_advert_t _mavlink_log_pub{nullptr};
 	uORB::PublicationMulti<orbit_status_s> _orbit_status_pub{ORB_ID(orbit_status)};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::MC_ORBIT_VEL>) _param_mc_orbit_vel, //wsh edited
+		(ParamInt<px4::params::MC_ORBIT_YAW>)  _param_mc_orbit_yaw, //wsh edited
+		(ParamFloat<px4::params::MC_ORBIT_ACC_MAX>)  _param_mc_orbit_acc_max, //wsh edited
 		(ParamFloat<px4::params::MC_ORBIT_RAD_MAX>) _param_mc_orbit_rad_max,
 		(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise, /**< cruise speed for circle approach */
+		(ParamInt<px4::params::MPC_MIS_SPD_MODE>) _param_mpc_mis_spd_mode,
+		(ParamFloat<px4::params::MPC_MIS_ASPD_MAX>) _param_mpc_mis_aspd_max,
+		(ParamInt<px4::params::MPC_YAW_MODE>) _param_mpc_yaw_mode,
 		(ParamFloat<px4::params::MPC_YAWRAUTO_MAX>) _param_mpc_yawrauto_max,
 		(ParamFloat<px4::params::MPC_XY_TRAJ_P>) _param_mpc_xy_traj_p,
 		(ParamFloat<px4::params::NAV_MC_ALT_RAD>)

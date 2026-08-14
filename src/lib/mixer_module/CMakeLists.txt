@@ -53,6 +53,8 @@ px4_add_library(mixer_module
 	functions/FunctionMotors.hpp
 	functions/FunctionParachute.hpp
 	functions/FunctionServos.hpp
+	functions/FunctionSimulinkMotors.hpp
+	functions/FunctionSimulinkServos.hpp
 
 	actuator_test.cpp
 	actuator_test.hpp

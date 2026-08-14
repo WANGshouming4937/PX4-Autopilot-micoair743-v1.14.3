@@ -74,9 +74,12 @@ bool PWMSim::updateOutputs(bool stop_motors, uint16_t outputs[MAX_ACTUATORS], un
 				OutputFunction function = _mixing_output.outputFunction(i);
 				bool is_reversible = reversible_outputs & (1u << i);
 				float output = outputs[i];
+				//wshEdited
+				bool is_standard_motor = ((int)function >= (int)OutputFunction::Motor1 && (int)function <= (int)OutputFunction::MotorMax);
+				bool is_simulink_motor = ((int)function >= (int)OutputFunction::Simulink_Motor1 && (int)function <= (int)OutputFunction::Simulink_MotorMax);
 
-				if (((int)function >= (int)OutputFunction::Motor1 && (int)function <= (int)OutputFunction::MotorMax)
-				    && !is_reversible) {
+				if ((is_standard_motor || is_simulink_motor) && !is_reversible) {
+				//wshEdited
 					// Scale non-reversible motors to [0, 1]
 					actuator_outputs.output[i] = (output - PWM_SIM_PWM_MIN_MAGIC) / (PWM_SIM_PWM_MAX_MAGIC - PWM_SIM_PWM_MIN_MAGIC);
 

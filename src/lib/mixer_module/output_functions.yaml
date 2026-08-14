@@ -38,6 +38,14 @@ functions:
 
     Landing_Gear_Wheel: 440
 
+    Simulink_Motor:
+      start: 501
+      count: 8
+
+    Simulink_Servo:
+      start: 521
+      count: 8
+
     # Add your own here:
     #MyCustomFunction: 10000
 

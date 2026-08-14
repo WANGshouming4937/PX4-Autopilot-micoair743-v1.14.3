@@ -46,6 +46,8 @@
 #include "functions/FunctionMotors.hpp"
 #include "functions/FunctionParachute.hpp"
 #include "functions/FunctionServos.hpp"
+#include "functions/FunctionSimulinkMotors.hpp"
+#include "functions/FunctionSimulinkServos.hpp"
 
 #include <board_config.h>
 #include <drivers/drv_pwm_output.h>
@@ -58,6 +60,7 @@
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_outputs.h>
+#include <drivers/drv_rfly.h> //DEdit
 #include <uORB/topics/parameter_update.h>
 
 using namespace time_literals;
@@ -259,6 +262,13 @@ private:
 	const bool _output_ramp_up; ///< if true, motors will ramp up from disarmed to min_output after arming
 
 	uORB::Subscription _armed_sub{ORB_ID(actuator_armed)};
+
+	uORB::Subscription _rfly_arm_sub{ORB_ID(actuator_armed_rfly)}; //DaiEdit
+	actuator_armed_s _rfly_arm; //DaiEdit
+	bool _is_ctrl_rfly=DEFAULT_CTRL_RFLY; //DaiEdit
+	bool _is_init=false;//DaiEdit
+	bool _is_io_rfly=DEFAULT_IO_RFLY; //DaiEdit
+	bool _is_sim_rfly=DEFAULT_SIM_RFLY; //DaiEdit
 
 	uORB::PublicationMulti<actuator_outputs_s> _outputs_pub{ORB_ID(actuator_outputs)};
 

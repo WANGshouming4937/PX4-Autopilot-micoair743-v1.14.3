@@ -73,6 +73,38 @@ __BEGIN_DECLS
  */
 #define PWM_IGNORE_THIS_CHANNEL UINT16_MAX
 
+//DEdit
+#define PWM_OUTPUT0_DEVICE_PATH "/dev/px4io"
+#define PWM_OUTPUT1_DEVICE_PATH "/dev/px4fmu"
+
+/** set alternate servo update rate */
+#define PWM_SERVO_SET_UPDATE_RATE _PX4_IOC(_PWM_SERVO_BASE, 3)
+
+/** selects servo update rates, one bit per servo. 0 = default (50Hz), 1 = alternate */
+#define PWM_SERVO_SET_SELECT_UPDATE_RATE _PX4_IOC(_PWM_SERVO_BASE, 6)
+
+/** set the 'ARM ok' bit, which activates the safety switch */
+#define PWM_SERVO_SET_ARM_OK	_PX4_IOC(_PWM_SERVO_BASE, 8)
+
+/** disarm all servo outputs (stop generating pulses) */
+#define PWM_SERVO_DISARM	_PX4_IOC(_PWM_SERVO_BASE, 1)
+
+/** set a single servo to a specific value */
+#define PWM_SERVO_SET(_servo)	_PX4_IOC(_PWM_SERVO_BASE, 0x30 + _servo)
+
+/** clear the 'ARM ok' bit, which deactivates the safety switch */
+#define PWM_SERVO_CLEAR_ARM_OK	_PX4_IOC(_PWM_SERVO_BASE, 9)
+
+/** arm all servo outputs handle by this driver */
+#define PWM_SERVO_ARM		_PX4_IOC(_PWM_SERVO_BASE, 0)
+
+/**
+ * Default value for a shutdown motor
+ */
+#define PWM_MOTOR_OFF	900
+
+//DEdit
+
 /*
  * ioctl() definitions
  *
