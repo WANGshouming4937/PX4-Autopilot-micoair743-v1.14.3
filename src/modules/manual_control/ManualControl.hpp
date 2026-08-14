@@ -34,6 +34,8 @@
 #pragma once
 
 #include <drivers/drv_hrt.h>
+#include <uORB/topics/actuator_armed.h> //DaiEdit
+#include <drivers/drv_rfly.h> //DEdit
 #include <lib/hysteresis/hysteresis.h>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/defines.h>
@@ -98,6 +100,10 @@ private:
 	void send_video_command();
 
 	uORB::Publication<manual_control_setpoint_s> _manual_control_setpoint_pub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _rfly_arm_sub{ORB_ID(actuator_armed_rfly)}; //DaiEdit
+	actuator_armed_s _rfly_arm; //DaiEdit
+	bool _is_rc_rfly=DEFAULT_RC_RFLY; //DaiEdit
+
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};

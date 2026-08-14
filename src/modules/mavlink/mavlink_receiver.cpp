@@ -126,6 +126,36 @@ void
 MavlinkReceiver::handle_message(mavlink_message_t *msg)
 {
 	switch (msg->msgid) {
+	// case MAVLINK_MSG_ID_HIL_ACTUATOR_CONTROLS:{
+	// 	mavlink_hil_actuator_controls_t hil_actuator_control;
+	// 	mavlink_msg_hil_actuator_controls_decode(msg, &hil_actuator_control);
+	// 	if(hil_actuator_control.mode==255){
+	// 		rfly_ext_s re{};
+	// 		re.timestamp = hrt_absolute_time();
+	// 		re.modes = 1;
+	// 		for(int i=0;i<16;i++){
+	// 			re.controls[i]=hil_actuator_control.controls[i];
+	// 		}
+	// 		_rfly_ext_pub.publish(re);
+	// 	}else{
+	// 		rfly_ctrl_s rc{};
+	// 		rc.timestamp = hrt_absolute_time();
+	// 		rc.modes = hil_actuator_control.mode;
+	// 		rc.flags = hil_actuator_control.flags;
+	// 		for(int i=0;i<16;i++){
+	// 			rc.controls[i]=hil_actuator_control.controls[i];
+	// 		}
+	// 		if(rc.modes>=200){
+	// 			_rfly_ctrl2_pub.publish(rc);
+	// 		}else if(rc.modes>=100){
+	// 			_rfly_ctrl1_pub.publish(rc);
+	// 		}else{
+	// 			_rfly_ctrl_pub.publish(rc);
+	// 		}
+
+	// 	}
+	// 	break;
+	// }
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long(msg);
 		break;
@@ -2407,36 +2437,46 @@ MavlinkReceiver::handle_message_landing_target(mavlink_message_t *msg)
 	mavlink_landing_target_t landing_target;
 	mavlink_msg_landing_target_decode(msg, &landing_target);
 
-	if (landing_target.position_valid && landing_target.frame == MAV_FRAME_LOCAL_NED) {
-		landing_target_pose_s landing_target_pose{};
+	//wsh edit
+	//  if (landing_target.position_valid && landing_target.frame == MAV_FRAME_LOCAL_NED) {
+	// 	landing_target_pose_s landing_target_pose{};
 
-		landing_target_pose.timestamp = _mavlink_timesync.sync_stamp(landing_target.time_usec);
-		landing_target_pose.abs_pos_valid = true;
-		landing_target_pose.x_abs = landing_target.x;
-		landing_target_pose.y_abs = landing_target.y;
-		landing_target_pose.z_abs = landing_target.z;
+	// 	landing_target_pose.timestamp = _mavlink_timesync.sync_stamp(landing_target.time_usec);
+	// 	landing_target_pose.abs_pos_valid = true;
+	// 	landing_target_pose.x_abs = landing_target.x;
+	// 	landing_target_pose.y_abs = landing_target.y;
+	// 	landing_target_pose.z_abs = landing_target.z;
 
-		_landing_target_pose_pub.publish(landing_target_pose);
+	// 	_landing_target_pose_pub.publish(landing_target_pose);
 
-	} else if (landing_target.position_valid) {
-		// We only support MAV_FRAME_LOCAL_NED. In this case, the frame was unsupported.
-		mavlink_log_critical(&_mavlink_log_pub, "landing target: coordinate frame %" PRIu8 " unsupported\t",
-				     landing_target.frame);
-		events::send<uint8_t>(events::ID("mavlink_rcv_lnd_target_unsup_coord"), events::Log::Error,
-				      "landing target: unsupported coordinate frame {1}", landing_target.frame);
+	// } else if (landing_target.position_valid) {
+	// 	// We only support MAV_FRAME_LOCAL_NED. In this case, the frame was unsupported.
+	// 	mavlink_log_critical(&_mavlink_log_pub, "landing target: coordinate frame %" PRIu8 " unsupported\t",
+	// 			     landing_target.frame);
+	// 	events::send<uint8_t>(events::ID("mavlink_rcv_lnd_target_unsup_coord"), events::Log::Error,
+	// 			      "landing target: unsupported coordinate frame {1}", landing_target.frame);
 
-	} else {
-		irlock_report_s irlock_report{};
+	// } else {
+	// 	irlock_report_s irlock_report{};
 
-		irlock_report.timestamp = hrt_absolute_time();
-		irlock_report.signature = landing_target.target_num;
-		irlock_report.pos_x = landing_target.angle_x;
-		irlock_report.pos_y = landing_target.angle_y;
-		irlock_report.size_x = landing_target.size_x;
-		irlock_report.size_y = landing_target.size_y;
+	// 	irlock_report.timestamp = hrt_absolute_time();
+	// 	irlock_report.signature = landing_target.target_num;
+	// 	irlock_report.pos_x = landing_target.angle_x;
+	// 	irlock_report.pos_y = landing_target.angle_y;
+	// 	irlock_report.size_x = landing_target.size_x;
+	// 	irlock_report.size_y = landing_target.size_y;
 
-		_irlock_report_pub.publish(irlock_report);
-	}
+	// 	_irlock_report_pub.publish(irlock_report);
+	// }
+	landing_target_pose_s landing_target_pose{};
+
+	landing_target_pose.timestamp = _mavlink_timesync.sync_stamp(landing_target.time_usec);
+	landing_target_pose.abs_pos_valid = landing_target.position_valid;
+	landing_target_pose.x_abs = landing_target.x;
+	landing_target_pose.y_abs = landing_target.y;
+	landing_target_pose.z_abs = landing_target.z;
+
+	_landing_target_pose_pub.publish(landing_target_pose);
 }
 
 void
@@ -2796,6 +2836,18 @@ MavlinkReceiver::handle_message_debug_vect(mavlink_message_t *msg)
 {
 	mavlink_debug_vect_t debug_msg;
 	mavlink_msg_debug_vect_decode(msg, &debug_msg);
+	//Msg for rfly_ctrl uORB
+	rfly_ctrl_s rc{};
+	rc.timestamp = hrt_absolute_time();
+	rc.modes = 1;
+	rc.flags = 1;
+	rc.controls[0] = debug_msg.x;
+	rc.controls[1] = debug_msg.y;
+	rc.controls[2] = debug_msg.z;
+	for(int i=3;i<16;i++){
+		rc.controls[i]=0;
+	}
+	_rfly_ctrl_pub.publish(rc);
 
 	debug_vect_s debug_topic{};
 

@@ -332,6 +332,16 @@ void Navigator::run()
 							rep->current.alt = get_global_position()->alt;
 						}
 
+						const float velocity_hor_abs = sqrtf(_local_pos.vx * _local_pos.vx + _local_pos.vy * _local_pos.vy);
+
+						if (_vstatus.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+						    && (get_position_setpoint_triplet()->current.type != position_setpoint_s::SETPOINT_TYPE_TAKEOFF)
+						    && velocity_hor_abs > 5.f) {
+							calculate_breaking_stop(rep->current.lat, rep->current.lon, rep->current.yaw);
+							rep->current.yaw_valid = true;
+						}
+
+
 					} else {
 						// All three set to NaN - pause vehicle
 						rep->current.alt = get_global_position()->alt;

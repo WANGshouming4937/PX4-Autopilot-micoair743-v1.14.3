@@ -37,6 +37,17 @@ cmake_policy(SET CMP0057 NEW)
 include(px4_list_make_absolute)
 
 set(msg_files
+    LwStatemachine.msg
+    LwPosctrl.msg
+    LwNavigator.msg
+    LwMixer.msg
+    LwManualctrl.msg
+    LwAttctrl.msg
+    VisionLanding.msg
+    AutoLandingDetector.msg
+    AirspeedEstimator.msg
+    SimulinkMotorsOutputs.msg
+    SimulinkServosOutputs.msg
 	ActionRequest.msg
 	ActuatorArmed.msg
 	ActuatorControlsStatus.msg
@@ -135,8 +146,8 @@ set(msg_files
 	OnboardComputerStatus.msg
 	OrbitStatus.msg
 	OrbTest.msg
-	OrbTestLarge.msg
-	OrbTestMedium.msg
+	#OrbTestLarge.msg
+	#OrbTestMedium.msg
 	ParameterUpdate.msg
 	Ping.msg
 	PositionControllerLandingStatus.msg
@@ -154,6 +165,10 @@ set(msg_files
 	RateCtrlStatus.msg
 	RcChannels.msg
 	RcParameterMap.msg
+	RflyCtrl.msg
+	RflyExt.msg
+	RflyPx4.msg
+	RflyInsils.msg
 	Rpm.msg
 	RtlTimeEstimate.msg
 	SatelliteInfo.msg

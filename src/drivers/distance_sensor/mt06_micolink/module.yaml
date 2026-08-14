@@ -1,0 +1,6 @@
+module_name: mt06_micolink
+serial_config:
+    - command: mt06_micolink start -d ${SERIAL_DEV}
+      port_config_param:
+        name: SENS_MT06_CFG
+        group: Sensors

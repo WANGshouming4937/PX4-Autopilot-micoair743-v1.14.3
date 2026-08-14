@@ -83,6 +83,10 @@
 #include <mavlink.h>
 #include <mavlink_types.h>
 
+#include <uORB/topics/actuator_armed.h> //DaiEdit
+#include <drivers/drv_rfly.h> //DEdit
+
+
 using namespace time_literals;
 
 //! Enumeration to use on the bitmask in HIL_SENSOR
@@ -265,6 +269,10 @@ private:
 	// uORB subscription handlers
 	int _actuator_outputs_sub{-1};
 	actuator_outputs_s _actuator_outputs{};
+	uORB::Subscription _rfly_arm_sub{ORB_ID(actuator_armed_rfly)}; //DaiEdit
+	actuator_armed_s _rfly_arm; //DaiEdit
+	bool _is_init=false;//DaiEdit
+	bool _is_sim_rfly=DEFAULT_SIM_RFLY; //DaiEdit
 
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 	uORB::Subscription _vehicle_command_sub{ORB_ID(vehicle_command)};

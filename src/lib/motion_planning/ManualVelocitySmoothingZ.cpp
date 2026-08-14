@@ -108,11 +108,21 @@ void ManualVelocitySmoothingZ::checkPositionLock(float velocity_target)
 	} else {
 		// Unlock position
 		if (_position_lock_active) {
+			//wsh edited
 			// Start the trajectory at the current velocity setpoint
-			_trajectory.setCurrentVelocity(_velocity_setpoint_feedback);
-			_state.v = _velocity_setpoint_feedback;
+			//_trajectory.setCurrentVelocity(_velocity_setpoint_feedback);
+			//_state.v = _velocity_setpoint_feedback;
+			// Start the trajectory at the current velocity setpoint if the velocity controller publishes feedback.
+			// If external controllers do not publish vehicle_local_position_setpoint, keep the smoothing state continuous.
+			if (PX4_ISFINITE(_velocity_setpoint_feedback)) {
+				_trajectory.setCurrentVelocity(_velocity_setpoint_feedback);
+				_state.v = _velocity_setpoint_feedback;
+			}
+			//wsh edited
+
 			resetPositionLock();
 		}
+
 
 		_trajectory.setCurrentPosition(_position_estimate);
 	}

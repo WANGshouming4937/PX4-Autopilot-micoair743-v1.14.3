@@ -847,6 +847,7 @@ private:
 	// range height
 	void controlRangeHeightFusion();
 	bool isConditionalRangeAidSuitable();
+	bool isRelaxedConditionalRangeAidSuitable();
 	void stopRngHgtFusion();
 
 	// terrain vertical position estimator

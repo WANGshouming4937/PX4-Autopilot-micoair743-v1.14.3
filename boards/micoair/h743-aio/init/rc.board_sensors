@@ -3,7 +3,7 @@
 # board specific sensors init
 #------------------------------------------------------------------------------
 
-board_adc start
+#board_adc start
 
 # # Internal SPI bus BMI088 accel/gyro
 bmi088 -s -b 2 -A -R 6 start
@@ -14,3 +14,6 @@ bmi270 -s -b 2 -R 0 start
 
 # Internal baro
 dps310 -I start -a 118
+ms5611 -X -b 1 -a 0x77 start
+
+ina228 start -X -a 69 -t 1

@@ -118,6 +118,7 @@ void SimulatorMavlink::actuator_controls_from_outputs(mavlink_hil_actuator_contr
 	msg->time_usec = hrt_absolute_time();
 
 	bool armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
+	//if(_is_sim_rfly)armed=true;
 
 	if (armed) {
 		for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
@@ -132,6 +133,93 @@ void SimulatorMavlink::actuator_controls_from_outputs(mavlink_hil_actuator_contr
 #if defined(ENABLE_LOCKSTEP_SCHEDULER)
 	msg->flags |= 1;
 #endif
+    // DaiEdit
+//     msg->flags=123;
+//     if (_is_sim_rfly && _actuator_outputs.output[0]>1){
+//         int _system_type = _param_mav_type.get();
+//         unsigned pos_thrust_motors_count;
+//         bool is_fixed_wing;
+
+//         switch (_system_type) {
+//         case MAV_TYPE_AIRSHIP:
+//         case MAV_TYPE_VTOL_TAILSITTER_DUOROTOR:
+//         case MAV_TYPE_COAXIAL:
+//             pos_thrust_motors_count = 2;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_TRICOPTER:
+//             pos_thrust_motors_count = 3;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_QUADROTOR:
+//         case MAV_TYPE_VTOL_TAILSITTER_QUADROTOR:
+//         case MAV_TYPE_VTOL_TILTROTOR:
+//             pos_thrust_motors_count = 4;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_VTOL_FIXEDROTOR:
+//             pos_thrust_motors_count = 5;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_HEXAROTOR:
+//             pos_thrust_motors_count = 6;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_VTOL_TAILSITTER:
+//             // this is the tricopter VTOL / quad plane with 3 motors and 2 servos
+//             pos_thrust_motors_count = 3;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_OCTOROTOR:
+//             pos_thrust_motors_count = 8;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_SUBMARINE:
+//             pos_thrust_motors_count = 0;
+//             is_fixed_wing = false;
+//             break;
+
+//         case MAV_TYPE_FIXED_WING:
+//             pos_thrust_motors_count = 0;
+//             is_fixed_wing = true;
+//             break;
+
+//         default:
+//             pos_thrust_motors_count = 0;
+//             is_fixed_wing = false;
+//             break;
+//         }
+
+//         for (unsigned i = 0; i < actuator_outputs_s::NUM_ACTUATOR_OUTPUTS; i++) {
+//             if (!armed) {
+//                 /* send 0 when disarmed and for disabled channels */
+//                 msg->controls[i] = 0.0f;
+
+//             } else if ((is_fixed_wing && i == 4) ||
+//                    (!is_fixed_wing && i < pos_thrust_motors_count)) {	//multirotor, rotor channel
+//                 /* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to 0..1 for rotors */
+//                 msg->controls[i] = (_actuator_outputs.output[i] - 1000) / (2000 - 1000);
+//                 msg->controls[i] = math::constrain(msg->controls[i], 0.f, 1.f);
+
+//             } else {
+//                 const float pwm_center = (2000 + 1000) / 2;
+//                 const float pwm_delta = (2000 - 1000) / 2;
+
+//                 /* scale PWM out PWM_DEFAULT_MIN..PWM_DEFAULT_MAX us to -1..1 for other channels */
+//                 msg->controls[i] = (_actuator_outputs.output[i] - pwm_center) / pwm_delta;
+//                 msg->controls[i] = math::constrain(msg->controls[i], -1.f, 1.f);
+//             }
+//         }
+//         msg->flags=0;
+//     }
+    // DaiEdit
 }
 
 void SimulatorMavlink::send_esc_telemetry(mavlink_hil_actuator_controls_t hil_act_control)
@@ -167,7 +255,15 @@ void SimulatorMavlink::send_esc_telemetry(mavlink_hil_actuator_controls_t hil_ac
 
 void SimulatorMavlink::send_controls()
 {
+	//DaiEdit
+	// if(_is_sim_rfly){
+	// 	orb_copy(ORB_ID(actuator_outputs_rfly), _actuator_outputs_sub, &_actuator_outputs);
+	// }else{
+	// 	orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
+	// }
 	orb_copy(ORB_ID(actuator_outputs), _actuator_outputs_sub, &_actuator_outputs);
+
+	//DaiEdit
 
 	if (_actuator_outputs.timestamp > 0) {
 		mavlink_hil_actuator_controls_t hil_act_control;
@@ -469,6 +565,7 @@ void SimulatorMavlink::handle_message_hil_sensor(const mavlink_message_t *msg)
 {
 	mavlink_hil_sensor_t imu;
 	mavlink_msg_hil_sensor_decode(msg, &imu);
+	imu.id = 0;//DEdit
 
 	// Assume imu with id 0 is the primary imu an base lockstep based on this.
 	if (imu.id == 0) {
@@ -1005,6 +1102,32 @@ void SimulatorMavlink::send()
 	while (true) {
 
 		// Wait for up to 100ms for data.
+		//DaiEdit
+		// if(!_is_init){ //未初始化
+		// 	_is_init=true;
+		// 	if(_is_sim_rfly){
+		// 		orb_unsubscribe(_actuator_outputs_sub);
+		// 		_actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_rfly), 0);
+		// 		fds_actuator_outputs[0].fd = _actuator_outputs_sub;
+		// 	}
+		// }
+
+		// if(_rfly_arm_sub.update(&_rfly_arm)){
+		// 	if(_rfly_arm.armed && !_is_sim_rfly){ // 如果收到要使用rfly的输出，但是还没有，则进入下面的程序
+		// 		_is_sim_rfly=true;
+		// 		orb_unsubscribe(_actuator_outputs_sub);
+		// 		_actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs_rfly), 0);
+		// 		fds_actuator_outputs[0].fd = _actuator_outputs_sub;
+		// 	}
+
+		// 	if(!_rfly_arm.armed && _is_sim_rfly){ //如果收到不使用rfly，但是仍在使用，则进入
+		// 		_is_sim_rfly=false;
+		// 		orb_unsubscribe(_actuator_outputs_sub);
+		// 		_actuator_outputs_sub = orb_subscribe_multi(ORB_ID(actuator_outputs), 0);
+		// 		fds_actuator_outputs[0].fd = _actuator_outputs_sub;
+		// 	}
+		// }
+		//DaiEdit
 		int pret = px4_poll(&fds_actuator_outputs[0], 1, 100);
 
 		if (pret == 0) {

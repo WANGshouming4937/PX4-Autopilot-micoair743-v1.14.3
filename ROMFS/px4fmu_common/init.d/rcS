@@ -253,6 +253,7 @@ else
 	# Start system state indicator.
 	#
 	rgbled start -X -q
+	rgbled start -I
 	rgbled_ncp5623c start -X -q
 	rgbled_lp5562 start -X -q
 	rgbled_is31fl3195 start -X -q
@@ -555,3 +556,4 @@ unset VEHICLE_TYPE
 # Boot is complete, inform MAVLink app(s) that the system is now fully up and running.
 #
 mavlink boot_complete
+px4_simulink_app start

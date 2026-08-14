@@ -38,6 +38,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <motion_planning/VelocitySmoothing.hpp>
 
 #include <matrix/matrix/math.hpp>
@@ -114,7 +115,8 @@ private:
 
 	Vector2f _position_setpoint_locked{};
 
-	Vector2f _velocity_setpoint_feedback{};
+	//Vector2f _velocity_setpoint_feedback{};
+	Vector2f _velocity_setpoint_feedback{NAN, NAN};
 	Vector2f _position_estimate{};
 
 	struct {

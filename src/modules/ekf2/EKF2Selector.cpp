@@ -310,7 +310,7 @@ bool EKF2Selector::UpdateErrorScores()
 				_instance[i].relative_test_ratio = 0;
 			}
 
-		} else if (!_instance[i].timeout && (hrt_elapsed_time(&_instance[i].timestamp_last) > status_timeout)) {
+		} else if (!_instance[i].timeout && (hrt_elapsed_time(&_instance[i].timestamp_last) > status_timeout * 3)) {
 			_instance[i].healthy.set_state_and_update(false, hrt_absolute_time());
 			_instance[i].timeout = true;
 		}

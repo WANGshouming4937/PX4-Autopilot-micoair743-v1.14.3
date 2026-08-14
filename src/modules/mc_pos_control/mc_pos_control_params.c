@@ -307,9 +307,12 @@ PARAM_DEFINE_FLOAT(MPC_XY_VEL_I_ACC, 0.4f);
 PARAM_DEFINE_FLOAT(MPC_XY_VEL_D_ACC, 0.2f);
 
 /**
- * Default horizontal velocity in mission
+ * Default horizontal cruise speed in mission
  *
- * Horizontal velocity used when flying autonomously in e.g. Missions, RTL, Goto.
+ * Horizontal cruise speed used when flying autonomously. With MPC_MIS_SPD_MODE=0
+ * this is ground speed (original behavior). With MPC_MIS_SPD_MODE=1 it is the default
+ * cruising airspeed for normal multicopter AUTO Mission POSITION legs; the resulting
+ * ground-speed constraint is still limited by MPC_XY_VEL_MAX.
  *
  * @unit m/s
  * @min 3.0
@@ -319,6 +322,42 @@ PARAM_DEFINE_FLOAT(MPC_XY_VEL_D_ACC, 0.2f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MPC_XY_CRUISE, 5.0f);
+
+/**
+ * Mission cruise speed interpretation for multicopter
+ *
+ * Selects how the horizontal speed requested by an AUTO Mission is interpreted.
+ * Ground-speed mode keeps the original PX4 behavior. Airspeed mode interprets
+ * the Mission speed as cruising airspeed on normal POSITION legs and converts it
+ * to a ground-speed trajectory constraint using the estimated horizontal wind.
+ * Takeoff, landing, loiter, off-track recovery and other non-cruise phases keep
+ * ground-speed behavior. MPC_XY_VEL_MAX always limits ground speed.
+ *
+ * @min 0
+ * @max 1
+ * @value 0 Mission speed is ground speed
+ * @value 1 Mission speed is cruising airspeed
+ * @group Mission
+ */
+PARAM_DEFINE_INT32(MPC_MIS_SPD_MODE, 0);
+
+/**
+ * Maximum mission cruise airspeed
+ *
+ * Maximum commanded cruise airspeed when MPC_MIS_SPD_MODE is set to airspeed mode.
+ * The Mission speed is limited to this value before wind compensation. The final
+ * ground-speed trajectory constraint is limited separately by MPC_XY_VEL_MAX.
+ * If the current wind makes the airspeed/ground-track constraints infeasible, the
+ * first implementation keeps executing the Mission track and sends a warning.
+ *
+ * @unit m/s
+ * @min 1.0
+ * @max 40.0
+ * @increment 0.5
+ * @decimal 1
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(MPC_MIS_ASPD_MAX, 15.0f);
 
 /**
  * Proportional gain for horizontal trajectory position error
@@ -839,12 +878,13 @@ PARAM_DEFINE_INT32(MPC_POS_MODE, 4);
  * Specifies the heading in Auto.
  *
  * @min 0
- * @max 4
+ * @max 5
  * @value 0 towards waypoint
  * @value 1 towards home
  * @value 2 away from home
- * @value 3 along trajectory
+ * @value 3 along ground trajectory
  * @value 4 towards waypoint (yaw first)
+ * @value 5 along desired airspeed direction
  * @group Mission
  */
 PARAM_DEFINE_INT32(MPC_YAW_MODE, 0);

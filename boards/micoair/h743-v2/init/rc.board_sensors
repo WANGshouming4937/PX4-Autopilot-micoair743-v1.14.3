@@ -3,7 +3,7 @@
 # board specific sensors init
 #------------------------------------------------------------------------------
 
-board_adc start
+#board_adc start
 
 # # Internal SPI bus BMI088 accel/gyro
 bmi088 -s -b 2 -A -R 6 start
@@ -14,6 +14,16 @@ bmi270 -s -b 3 -R 0 start
 
 # Internal baro
 spl06 -I -a 0x77 start
+ms5611 -X -b 1 -a 0x77 start
 
 # External mag
 qmc5883l -I -a 0x0D -R 4 start
+
+# Power monitor: try INA228 first, fallback to board_adc
+if ina228 start -X -a 69 -t 1
+then
+    echo "ina228 start OK"
+else
+    echo "ina228 start failed, starting board_adc"
+    board_adc start
+fi

@@ -1,0 +1,5 @@
+menuconfig DRIVERS_DISTANCE_SENSOR_MT06_MICOLINK
+	bool "mt06_micolink"
+	default n
+	---help---
+		Enable support for MT-06 Micolink laser rangefinder.

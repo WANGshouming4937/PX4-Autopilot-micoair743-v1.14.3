@@ -382,6 +382,9 @@ int Commander::custom_command(int argc, char *argv[])
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_AUTO,
 						     PX4_CUSTOM_SUB_MODE_AUTO_LOITER);
 
+			} else if (!strcmp(argv[1], "orbit")) {
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_ORBIT, 10.0f, 1.0f, 0.0f, 0.0f, NAN, NAN, NAN);
+
 			} else if (!strcmp(argv[1], "auto:rtl")) {
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_AUTO,
 						     PX4_CUSTOM_SUB_MODE_AUTO_RTL);
@@ -540,6 +543,7 @@ transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_
 	}
 
 	if (run_preflight_checks && !_arm_state_machine.isArmed()) {
+		//WSHEdited
 		if (_vehicle_control_mode.flag_control_manual_enabled) {
 			if (_vehicle_control_mode.flag_control_climb_rate_enabled &&
 			    !_failsafe_flags.manual_control_signal_lost && _is_throttle_above_center) {
@@ -572,6 +576,20 @@ transition_result_t Commander::arm(arm_disarm_reason_t calling_reason, bool run_
 			tune_negative(true);
 			return TRANSITION_DENIED;
 		}
+		//WSHEdited
+
+		// if (!_failsafe_flags.manual_control_signal_lost &&
+            	// 	_vehicle_status.vehicle_type != vehicle_status_s::VEHICLE_TYPE_ROVER) {
+
+            	// 	// _is_throttle_low 在 manualControlCheck() 中由原始 RC 数据计算，
+            	// 	if (!_is_throttle_low) {
+                // 		mavlink_log_critical(&_mavlink_log_pub, "Arming denied: high throttle");
+                // 		events::send(events::ID("commander_arm_denied_high_thr"), events::Log::Critical, "Arming denied: high throttle");
+                // 		tune_negative(true);
+                // 		return TRANSITION_DENIED;
+           	// 	}
+        	// }
+
 	}
 
 	transition_result_t arming_res = _arm_state_machine.arming_state_transition(_vehicle_status,
@@ -597,14 +615,14 @@ transition_result_t Commander::disarm(arm_disarm_reason_t calling_reason, bool f
 	if (!forced) {
 		const bool landed = (_vehicle_land_detected.landed || _vehicle_land_detected.maybe_landed
 				     || is_ground_vehicle(_vehicle_status));
-		const bool mc_manual_thrust_mode = _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
-						   && _vehicle_control_mode.flag_control_manual_enabled
-						   && !_vehicle_control_mode.flag_control_climb_rate_enabled;
+		// const bool mc_manual_thrust_mode = _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+		// 				   && _vehicle_control_mode.flag_control_manual_enabled
+		// 				   && !_vehicle_control_mode.flag_control_climb_rate_enabled;
 		const bool commanded_by_rc = (calling_reason == arm_disarm_reason_t::rc_stick)
 					     || (calling_reason == arm_disarm_reason_t::rc_switch)
 					     || (calling_reason == arm_disarm_reason_t::rc_button);
 
-		if (!landed && !(mc_manual_thrust_mode && commanded_by_rc)) {
+		if (!landed && !commanded_by_rc) {
 			if (calling_reason != arm_disarm_reason_t::rc_stick) {
 				mavlink_log_critical(&_mavlink_log_pub, "Disarming denied! Not landed\t");
 				events::send(events::ID("commander_disarming_denied_not_landed"),
@@ -2211,7 +2229,7 @@ bool Commander::handleModeIntentionAndFailsafe()
 
 	switch (_failsafe.selectedAction()) {
 	case FailsafeBase::Action::Disarm:
-		disarm(arm_disarm_reason_t::failsafe, true);
+		disarm(arm_disarm_reason_t::failsafe, true); //如果没有着陆，不会执行disarm
 		break;
 
 	case FailsafeBase::Action::Terminate:

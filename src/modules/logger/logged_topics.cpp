@@ -45,6 +45,24 @@ using namespace px4::logger;
 
 void LoggedTopics::add_default_topics()
 {
+	add_topic("lw_attctrl",20);//x5，以20ms的周期记录
+	add_topic("lw_mixer",20); //x5
+	add_topic("vision_landing",100); //x5
+	add_topic("auto_landing_detector",100); //x5
+	add_topic("airspeed_estimator",100); //x5
+	add_topic("lw_posctrl", 100); //x5
+	add_topic("lw_statemachine", 200);
+	add_topic("lw_manualctrl", 100);
+	add_topic("lw_navigator", 100); //x5
+	add_topic("takeoff_status", 100);
+	add_topic("vehicle_torque_setpoint_rfly", 100);
+	add_topic("vehicle_thrust_setpoint_rfly", 100);
+	add_topic("actuator_outputs_rfly", 100);
+	add_topic("actuator_armed_rfly", 100);
+	add_topic("rfly_px4", 100);
+	add_topic("rfly_ext", 100);
+	add_topic("rfly_ctrl", 100);
+	add_topic("rfly_insils", 100);
 	add_topic("action_request");
 	add_topic("actuator_armed");
 	add_optional_topic("actuator_controls_status_0", 300);
@@ -104,7 +122,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("sensors_status_imu", 200);
 	add_optional_topic("spoilers_setpoint", 1000);
 	add_topic("system_power", 500);
-	add_optional_topic("takeoff_status", 1000);
+	//add_optional_topic("takeoff_status", 1000);
 	add_optional_topic("tecs_status", 200);
 	add_optional_topic("tiltrotor_extra_controls", 100);
 	add_topic("trajectory_setpoint", 200);
@@ -383,6 +401,16 @@ void LoggedTopics::add_system_identification_topics()
 	add_topic("sensor_combined");
 	add_topic("vehicle_angular_velocity");
 	add_topic("vehicle_torque_setpoint");
+
+	add_topic("lw_attctrl");
+	add_topic("lw_mixer");
+	add_topic("lw_posctrl");
+	add_topic("lw_statemachine");
+	add_topic("lw_manualctrl");
+	add_topic("lw_navigator");
+	add_topic("vision_landing");
+	add_topic("auto_landing_detector");
+	add_topic("airspeed_estimator");
 }
 
 void LoggedTopics::add_mavlink_tunnel()

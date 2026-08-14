@@ -145,7 +145,8 @@ enum GnssCtrl : uint8_t {
 enum RngCtrl : uint8_t {
 	DISABLED    = 0,
 	CONDITIONAL = 1,
-	ENABLED     = 2
+	ENABLED     = 2,
+	RELAXED_CONDITIONAL = 3
 };
 
 enum class EvCtrl : uint8_t {

@@ -59,7 +59,8 @@ bool FlightTaskManualAltitude::updateInitialize()
 bool FlightTaskManualAltitude::activate(const trajectory_setpoint_s &last_setpoint)
 {
 	bool ret = FlightTask::activate(last_setpoint);
-	_yaw_setpoint = NAN;
+	//_yaw_setpoint = NAN;
+	_yaw_setpoint = _yaw;
 	_yawspeed_setpoint = 0.f;
 	_acceleration_setpoint = Vector3f(0.f, 0.f, NAN); // altitude is controlled from position/velocity
 	_position_setpoint(2) = _position(2);

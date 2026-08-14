@@ -45,6 +45,8 @@
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/airspeed_estimator.h>
+#include <uORB/uORB.h>
 #include <lib/geo/geo.h>
 #include <lib/weather_vane/WeatherVane.hpp>
 #include <lib/mathlib/math/filter/AlphaFilter.hpp>
@@ -81,6 +83,15 @@ enum class State {
 	none /**< Vehicle is in normal tracking mode from triplet previous to triplet target */
 };
 
+/** Mission airspeed constraint status. Only Normal and CruiseLimited change the
+ * cruise command in the first implementation. Infeasible states are warning-only. */
+enum class MissionAirspeedState : uint8_t {
+	Normal = 0,
+	CruiseLimited,
+	TrackInfeasible,
+	FullyInfeasible
+};
+
 class FlightTaskAuto : public FlightTask
 {
 public:
@@ -105,8 +116,14 @@ protected:
 	void _ekfResetHandlerHeading(float delta_psi) override;
 
 	void _checkEmergencyBraking();
-	bool _generateHeadingAlongTraj(); /**< Generates heading along trajectory. */
+	bool _generateHeadingAlongTraj(); /**< Generates heading along ground trajectory. */
+	bool _generateHeadingAlongAirspeed(); /**< Generates heading along desired horizontal airspeed. */
 	bool isTargetModified() const;
+	void _updateWindEstimate();
+	void _updateCruiseSpeed();
+	float _airspeedToGroundspeed(float airspeed_sp, const matrix::Vector2f &track_direction,
+				      MissionAirspeedState &state) const;
+	void _updateAirspeedConstraintWarning(MissionAirspeedState new_state);
 	void _updateTrajConstraints();
 
 	void rcHelpModifyYaw(float &yaw_sp);
@@ -125,11 +142,14 @@ protected:
 	matrix::Vector3f _target{}; /**< Target waypoint  (local frame).*/
 	matrix::Vector3f _next_wp{}; /**< The next waypoint after target (local frame). If no next setpoint is available, next is set to target. */
 	bool _next_was_valid{false};
-	float _mc_cruise_speed{NAN}; /**< Requested cruise speed. If not valid, default cruise speed is used. */
+	float _mission_cruise_speed{NAN}; /**< Raw speed requested by Mission/Navigator. */
+	float _mc_cruise_airspeed{NAN}; /**< Desired mission cruising airspeed when MPC_MIS_SPD_MODE=1. */
+	float _mc_cruise_speed{NAN}; /**< Final ground cruise speed used by PositionSmoothing. */
 	WaypointType _type{WaypointType::idle}; /**< Type of current target triplet. */
 
 	uORB::SubscriptionData<home_position_s>			_sub_home_position{ORB_ID(home_position)};
 	uORB::SubscriptionData<vehicle_status_s>		_sub_vehicle_status{ORB_ID(vehicle_status)};
+	uORB::SubscriptionData<airspeed_estimator_s>	_sub_airspeed_estimator{ORB_ID(airspeed_estimator)};
 
 	State _current_state{State::none};
 	float _target_acceptance_radius{0.0f}; /**< Acceptances radius of the target */
@@ -151,8 +171,26 @@ protected:
 	bool _is_emergency_braking_active{false};
 	bool _want_takeoff{false};
 
+	// Wind estimate used by mission airspeed guidance. The raw estimate is retained while
+	// validity fades out, which makes loss/recovery of the estimator continuous.
+	matrix::Vector2f _wind_velocity_xy_raw{};
+	matrix::Vector2f _wind_velocity_xy{};
+	float _wind_valid_blend{0.f};
+	bool _wind_estimate_valid{false};
+	MissionAirspeedState _airspeed_constraint_state{MissionAirspeedState::Normal};
+	hrt_abstime _time_last_airspeed_warning{0};
+	orb_advert_t _mavlink_log_pub{nullptr};
+
+	static constexpr hrt_abstime WIND_ESTIMATE_TIMEOUT_US = 500000;
+	static constexpr hrt_abstime AIRSPEED_WARNING_REPEAT_US = 10000000;
+	static constexpr float WIND_VALIDITY_TAU_S = 1.0f;
+	static constexpr float CRUISE_SPEED_TAU_S = 0.5f;
+	static constexpr float MIN_GROUND_PROGRESS_SPEED = 0.5f;
+
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTask,
 					(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,
+					(ParamInt<px4::params::MPC_MIS_SPD_MODE>) _param_mpc_mis_spd_mode,
+					(ParamFloat<px4::params::MPC_MIS_ASPD_MAX>) _param_mpc_mis_aspd_max,
 					(ParamFloat<px4::params::NAV_MC_ALT_RAD>)
 					_param_nav_mc_alt_rad, //vertical acceptance radius at which waypoints are updated
 					(ParamInt<px4::params::MPC_YAW_MODE>) _param_mpc_yaw_mode, // defines how heading is executed,

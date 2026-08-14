@@ -50,6 +50,8 @@
 #include <px4_platform_common/log.h>
 #include <arpa/inet.h>
 #include <px4_platform_common/shutdown.h>
+#include <lib/parameters/param.h>
+#include <px4_platform_common/posix.h>
 
 constexpr char DEFAULT_NETMAN_CONFIG[] = "/fs/microsd/net.cfg";
 #if defined(CONFIG_NETINIT_DHCPC)
@@ -303,6 +305,14 @@ errout: {
 
 int update(const char *path, const char *netdev)
 {
+
+	param_t mav_sysid = param_find("MAV_SYS_ID");
+	int32_t mav_sysid_int;
+	param_get(mav_sysid, &mav_sysid_int);
+	char hostname[20]={0};
+	sprintf(hostname, "nuttx_%ld", mav_sysid_int);
+	sethostname(hostname,strlen(hostname));
+
 	net_params config;
 	struct stat sb;
 	FAR char *lines = nullptr;
