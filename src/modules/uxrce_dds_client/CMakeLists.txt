@@ -35,7 +35,7 @@ if(${CMAKE_VERSION} VERSION_LESS "3.11")
     message(WARNING "skipping uxrce_dds_client, Micro-XRCE-DDS-Client needs to be fixed to work with CMAKE_VERSION ${CMAKE_VERSION}")
 
 else()
-	px4_add_git_submodule(TARGET git_micro_xrce_dds_client PATH "${CMAKE_CURRENT_LIST_DIR}/Micro-XRCE-DDS-Client")
+	#px4_add_git_submodule(TARGET git_micro_xrce_dds_client PATH "${CMAKE_CURRENT_LIST_DIR}/Micro-XRCE-DDS-Client")
 
 	# If a toolchain file is given, explicitly define its path when building the Micro-XRCE-DDS-CLient
 	if(CMAKE_TOOLCHAIN_FILE MATCHES "cmake$")
@@ -90,7 +90,8 @@ else()
 			-DCMAKE_TOOLCHAIN_FILE:STRING=${microxrceddsclient_toolchain}
 		BUILD_BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/${lib_dir}/libmicroxrcedds_client.a
 		BUILD_BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/${lib_dir}/libmicrocdr.a
-		DEPENDS prebuild_targets git_micro_xrce_dds_client
+		#DEPENDS prebuild_targets git_micro_xrce_dds_client
+		DEPENDS prebuild_targets
 		LOG_CONFIGURE true
 		LOG_BUILD true
 		LOG_INSTALL true
