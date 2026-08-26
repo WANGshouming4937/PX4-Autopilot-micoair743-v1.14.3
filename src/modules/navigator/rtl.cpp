@@ -298,7 +298,26 @@ void RTL::on_activation()
 
 void RTL::on_active()
 {
-	if (_rtl_state != RTL_STATE_LANDED && is_mission_item_reached_or_completed()) {
+	bool rtl_item_reached = false;
+
+	if (_rtl_state != RTL_STATE_LANDED) {
+		const bool mc_return = (_rtl_state == RTL_STATE_RETURN)
+			&& (_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING);
+
+		if (mc_return) {
+		if (is_mc_return_ready()) {
+			rtl_item_reached = is_mission_item_reached_or_completed();
+
+		} else {
+			reset_mission_item_reached();
+		}
+
+		} else {
+		rtl_item_reached = is_mission_item_reached_or_completed();
+		}
+	}
+
+	if (rtl_item_reached) {
 		advance_rtl();
 		set_rtl_item();
 	}
@@ -412,7 +431,12 @@ void RTL::set_rtl_item()
 				_mission_item.yaw = _navigator->get_local_position()->heading;
 			}
 
-			_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
+			if (_navigator->get_vstatus()->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+				_mission_item.acceptance_radius = math::max(_param_rtl_mc_acc_rad.get(), 0.5f);
+
+			} else {
+				_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
+			}
 			_mission_item.time_inside = 0.0f;
 			_mission_item.autocontinue = true;
 			_mission_item.origin = ORIGIN_ONBOARD;
@@ -691,6 +715,32 @@ void RTL::advance_rtl()
 	default:
 		break;
 	}
+}
+
+bool RTL::is_mc_return_ready()
+{
+    const vehicle_global_position_s &gpos = *_navigator->get_global_position();
+    const vehicle_local_position_s &lpos = *_navigator->get_local_position();
+
+    if (!lpos.v_xy_valid || !PX4_ISFINITE(lpos.vx) || !PX4_ISFINITE(lpos.vy)) {
+        return false;
+    }
+
+    const float distance_xy = get_distance_to_next_waypoint(
+                      _destination.lat, _destination.lon,
+                      gpos.lat, gpos.lon);
+
+    if (!PX4_ISFINITE(distance_xy)) {
+        return false;
+    }
+
+    const float velocity_xy = sqrtf(lpos.vx * lpos.vx + lpos.vy * lpos.vy);
+
+    const float acceptance_radius = math::max(_param_rtl_mc_acc_rad.get(), 0.5f);
+    const float velocity_threshold = math::max(_param_rtl_mc_vel_thr.get(), 0.0f);
+
+    return distance_xy <= acceptance_radius
+           && velocity_xy <= velocity_threshold;
 }
 
 float RTL::calculate_return_alt_from_cone_half_angle(float cone_half_angle_deg)

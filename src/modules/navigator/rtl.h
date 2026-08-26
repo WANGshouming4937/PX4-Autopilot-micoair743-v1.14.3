@@ -122,6 +122,8 @@ private:
 
 	void advance_rtl();
 
+	bool is_mc_return_ready();
+
 	float calculate_return_alt_from_cone_half_angle(float cone_half_angle_deg);
 	void calcRtlTimeEstimate(const RTLState rtl_state, rtl_time_estimate_s &rtl_time_estimate);
 
@@ -169,6 +171,8 @@ private:
 		(ParamFloat<px4::params::RTL_DESCEND_ALT>) _param_rtl_descend_alt,
 		(ParamFloat<px4::params::RTL_LAND_DELAY>)  _param_rtl_land_delay,
 		(ParamFloat<px4::params::RTL_MIN_DIST>)    _param_rtl_min_dist,
+		(ParamFloat<px4::params::RTL_MC_ACC_RAD>)  _param_rtl_mc_acc_rad,
+    		(ParamFloat<px4::params::RTL_MC_VEL_THR>)  _param_rtl_mc_vel_thr,
 		(ParamInt<px4::params::RTL_TYPE>)          _param_rtl_type,
 		(ParamInt<px4::params::RTL_CONE_ANG>)      _param_rtl_cone_half_angle_deg,
 		(ParamInt<px4::params::RTL_PLD_MD>)        _param_rtl_pld_md,
