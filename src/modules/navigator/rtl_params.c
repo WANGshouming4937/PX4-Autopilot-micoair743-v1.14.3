@@ -104,6 +104,44 @@ PARAM_DEFINE_FLOAT(RTL_LAND_DELAY, 0.0f);
 PARAM_DEFINE_FLOAT(RTL_MIN_DIST, 10.0f);
 
 /**
+ * Multicopter RTL return acceptance radius
+ *
+ * Horizontal acceptance radius used to complete the RETURN phase
+ * in RTL for rotary-wing vehicles.
+ *
+ * This parameter is independent of NAV_ACC_RAD and only affects
+ * the RTL RETURN endpoint.
+ *
+ * @unit m
+ * @min 0.5
+ * @max 20.0
+ * @decimal 1
+ * @increment 0.5
+ * @group Return Mode
+ */
+PARAM_DEFINE_FLOAT(RTL_MC_ACC_RAD, 2.0f);
+
+/**
+ * Multicopter RTL return horizontal velocity threshold
+ *
+ * Maximum horizontal ground speed allowed when completing the
+ * RETURN phase in RTL for rotary-wing vehicles.
+ *
+ * The vehicle must be inside RTL_MC_ACC_RAD and the horizontal
+ * ground speed must be below this threshold before RTL advances
+ * from RETURN to DESCEND.
+ *
+ * @unit m/s
+ * @min 0.1
+ * @max 10.0
+ * @decimal 1
+ * @increment 0.1
+ * @group Return Mode
+ */
+PARAM_DEFINE_FLOAT(RTL_MC_VEL_THR, 1.5f);
+
+
+/**
  * Return type
  *
  * Return mode destination and flight path (home location, rally point, mission landing pattern, reverse mission)
