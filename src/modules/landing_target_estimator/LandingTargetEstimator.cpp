@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2018 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2026 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,255 +31,237 @@
  *
  ****************************************************************************/
 
-/*
- * @file LandingTargetEstimator.cpp
- *
- * @author Nicolas de Palezieux (Sunflower Labs) <ndepal@gmail.com>
- * @author Mohammed Kabir <kabir@uasys.io>
- *
- */
-
-#include <px4_platform_common/px4_config.h>
-#include <px4_platform_common/defines.h>
-#include <drivers/drv_hrt.h>
-
 #include "LandingTargetEstimator.h"
 
-#define SEC2USEC 1000000.0f
+#include <px4_platform_common/defines.h>
+#include <px4_platform_common/log.h>
+#include <mathlib/mathlib.h>
+
+#include <math.h>
 
 namespace landing_target_estimator
 {
 
 LandingTargetEstimator::LandingTargetEstimator()
 {
-	_paramHandle.acc_unc = param_find("LTEST_ACC_UNC");
-	_paramHandle.meas_unc = param_find("LTEST_MEAS_UNC");
-	_paramHandle.pos_unc_init = param_find("LTEST_POS_UNC_IN");
-	_paramHandle.vel_unc_init = param_find("LTEST_VEL_UNC_IN");
-	_paramHandle.mode = param_find("LTEST_MODE");
-	_paramHandle.scale_x = param_find("LTEST_SCALE_X");
-	_paramHandle.scale_y = param_find("LTEST_SCALE_Y");
-	_paramHandle.sensor_yaw = param_find("LTEST_SENS_ROT");
-	_paramHandle.offset_x = param_find("LTEST_SENS_POS_X");
-	_paramHandle.offset_y = param_find("LTEST_SENS_POS_Y");
-	_paramHandle.offset_z = param_find("LTEST_SENS_POS_Z");
+	_param_handles.position_uncertainty_initial = param_find("LTEST_POS_UNC_IN");
+	_param_handles.measurement_uncertainty_xy = param_find("LTEST_MEAS_XY");
+	_param_handles.measurement_uncertainty_z = param_find("LTEST_MEAS_Z");
+	_param_handles.process_uncertainty = param_find("LTEST_PROC_UNC");
+	_param_handles.innovation_gate = param_find("LTEST_GATE");
+	_param_handles.timeout = param_find("LTEST_TIMEOUT");
 	_check_params(true);
 }
 
 void LandingTargetEstimator::update()
 {
 	_check_params(false);
+	_update_vehicle_state();
 
-	_update_topics();
+	const hrt_abstime now = hrt_absolute_time();
 
-	/* predict */
-	if (_estimator_initialized) {
-		if (hrt_absolute_time() - _last_update > landing_target_estimator_TIMEOUT_US) {
-			PX4_INFO("Lost sight of Marker");
-			_estimator_initialized = false;
+	if (_filter.initialized()) {
+		const float dt = math::constrain((now - _last_predict) * 1e-6f, 0.f, 1.f);
+		_filter.predict(dt, _params.process_uncertainty);
+		_last_predict = now;
+	}
 
-		} else {
-			float dt = (hrt_absolute_time() - _last_predict) / SEC2USEC;
+	landing_target_observation_s observation{};
 
-			// predict target position with the help of accel data
-			matrix::Vector3f a{_vehicle_acceleration.xyz};
+	if (_landing_target_observation_sub.update(&observation)) {
+		_handle_observation(observation, now);
+	}
 
-			if (_vehicleAttitude_valid && _vehicle_acceleration_valid) {
-				matrix::Quaternion<float> q_att(&_vehicleAttitude.q[0]);
-				_R_att = matrix::Dcm<float>(q_att);
-				a = _R_att * a;
+	if (_filter.initialized()) {
+		const hrt_abstime timeout_us = static_cast<hrt_abstime>(_params.timeout * 1e6f);
 
-			} else {
-				a.zero();
-			}
-
-			_kalman_filter_x.predict(dt, -a(0), _params.acc_unc);
-			_kalman_filter_y.predict(dt, -a(1), _params.acc_unc);
-
-			_last_predict = hrt_absolute_time();
+		if (now - _last_valid_observation > timeout_us) {
+			PX4_INFO("landing target observation timed out");
+			_filter.reset();
+			_measurement_rejected = false;
 		}
 	}
 
-	if (!_new_irlockReport) {
-		// nothing to do
+	_publish_target_pose(now);
+}
+
+void LandingTargetEstimator::_update_vehicle_state()
+{
+	_vehicle_attitude_sub.update(&_vehicle_attitude);
+
+	if (_vehicle_local_position_sub.update(&_vehicle_local_position)) {
+		if (_reset_counters_initialized && _filter.initialized()) {
+			matrix::Vector3f reset_delta{};
+			bool position_reset = false;
+
+			if (_vehicle_local_position.xy_reset_counter != _xy_reset_counter
+			    && PX4_ISFINITE(_vehicle_local_position.delta_xy[0])
+			    && PX4_ISFINITE(_vehicle_local_position.delta_xy[1])) {
+				reset_delta(0) = _vehicle_local_position.delta_xy[0];
+				reset_delta(1) = _vehicle_local_position.delta_xy[1];
+				position_reset = true;
+			}
+
+			if (_vehicle_local_position.z_reset_counter != _z_reset_counter
+			    && PX4_ISFINITE(_vehicle_local_position.delta_z)) {
+				reset_delta(2) = _vehicle_local_position.delta_z;
+				position_reset = true;
+			}
+
+			if (position_reset) {
+				_filter.shiftState(reset_delta);
+			}
+		}
+
+		_xy_reset_counter = _vehicle_local_position.xy_reset_counter;
+		_z_reset_counter = _vehicle_local_position.z_reset_counter;
+		_reset_counters_initialized = true;
+	}
+}
+
+void LandingTargetEstimator::_handle_observation(const landing_target_observation_s &observation, hrt_abstime now)
+{
+	if (!observation.position_valid || observation.frame != landing_target_observation_s::FRAME_BODY_FRD
+	    || !_vehicle_state_valid()) {
 		return;
 	}
 
-	// mark this sensor measurement as consumed
-	_new_irlockReport = false;
+	if (!PX4_ISFINITE(observation.position_body[0])
+	    || !PX4_ISFINITE(observation.position_body[1])
+	    || !PX4_ISFINITE(observation.position_body[2])) {
+		return;
+	}
 
+	const matrix::Vector3f target_body{observation.position_body[0],
+					  observation.position_body[1],
+					  observation.position_body[2]};
+	const matrix::Vector3f vehicle_position{_vehicle_local_position.x,
+					       _vehicle_local_position.y,
+					       _vehicle_local_position.z};
+	const matrix::Quaternion<float> vehicle_attitude(&_vehicle_attitude.q[0]);
+	const matrix::Dcmf rotation_body_to_ned(vehicle_attitude);
+	const matrix::Vector3f target_absolute_measurement = vehicle_position + rotation_body_to_ned * target_body;
 
-	if (!_estimator_initialized) {
-		float vx_init = _vehicleLocalPosition.v_xy_valid ? -_vehicleLocalPosition.vx : 0.f;
-		float vy_init = _vehicleLocalPosition.v_xy_valid ? -_vehicleLocalPosition.vy : 0.f;
-		PX4_INFO("Init %.2f %.2f", (double)vx_init, (double)vy_init);
-		_kalman_filter_x.init(_target_position_report.rel_pos_x, vx_init, _params.pos_unc_init, _params.vel_unc_init);
-		_kalman_filter_y.init(_target_position_report.rel_pos_y, vy_init, _params.pos_unc_init, _params.vel_unc_init);
+	bool measurement_accepted = true;
 
-		_estimator_initialized = true;
-		_last_update = hrt_absolute_time();
-		_last_predict = _last_update;
+	if (!_filter.initialized()) {
+		_filter.init(target_absolute_measurement, fmaxf(_params.position_uncertainty_initial, 1e-6f));
+		_last_predict = now;
 
 	} else {
-		// update
-		const float measurement_uncertainty = _params.meas_unc * _dist_z * _dist_z;
-		bool update_x = _kalman_filter_x.update(_target_position_report.rel_pos_x, measurement_uncertainty);
-		bool update_y = _kalman_filter_y.update(_target_position_report.rel_pos_y, measurement_uncertainty);
-
-		if (!update_x || !update_y) {
-			if (!_faulty) {
-				_faulty = true;
-				PX4_INFO("Landing target measurement rejected:%s%s", update_x ? "" : " x", update_y ? "" : " y");
-			}
-
-		} else {
-			_faulty = false;
-		}
-
-		if (!_faulty) {
-			// only publish if both measurements were good
-
-			_target_pose.timestamp = _target_position_report.timestamp;
-
-			float x, xvel, y, yvel, covx, covx_v, covy, covy_v;
-			_kalman_filter_x.getState(x, xvel);
-			_kalman_filter_x.getCovariance(covx, covx_v);
-
-			_kalman_filter_y.getState(y, yvel);
-			_kalman_filter_y.getCovariance(covy, covy_v);
-
-			_target_pose.is_static = (_params.mode == TargetMode::Stationary);
-
-			_target_pose.rel_pos_valid = true;
-			_target_pose.rel_vel_valid = true;
-			_target_pose.x_rel = x;
-			_target_pose.y_rel = y;
-			_target_pose.z_rel = _target_position_report.rel_pos_z ;
-			_target_pose.vx_rel = xvel;
-			_target_pose.vy_rel = yvel;
-
-			_target_pose.cov_x_rel = covx;
-			_target_pose.cov_y_rel = covy;
-
-			_target_pose.cov_vx_rel = covx_v;
-			_target_pose.cov_vy_rel = covy_v;
-
-			if (_vehicleLocalPosition_valid && _vehicleLocalPosition.xy_valid) {
-				_target_pose.x_abs = x + _vehicleLocalPosition.x;
-				_target_pose.y_abs = y + _vehicleLocalPosition.y;
-				_target_pose.z_abs = _target_position_report.rel_pos_z  + _vehicleLocalPosition.z;
-				_target_pose.abs_pos_valid = true;
-
-			} else {
-				_target_pose.abs_pos_valid = false;
-			}
-
-			_targetPosePub.publish(_target_pose);
-
-			_last_update = hrt_absolute_time();
-			_last_predict = _last_update;
-		}
-
-		float innov_x, innov_cov_x, innov_y, innov_cov_y;
-		_kalman_filter_x.getInnovations(innov_x, innov_cov_x);
-		_kalman_filter_y.getInnovations(innov_y, innov_cov_y);
-
-		_target_innovations.timestamp = _target_position_report.timestamp;
-		_target_innovations.innov_x = innov_x;
-		_target_innovations.innov_cov_x = innov_cov_x;
-		_target_innovations.innov_y = innov_y;
-		_target_innovations.innov_cov_y = innov_cov_y;
-
-		_targetInnovationsPub.publish(_target_innovations);
+		const matrix::Vector3f measurement_variance{_params.measurement_uncertainty_xy,
+							     _params.measurement_uncertainty_xy,
+							     _params.measurement_uncertainty_z};
+		measurement_accepted = _filter.update(target_absolute_measurement, measurement_variance,
+						      _params.innovation_gate);
 	}
+
+	if (measurement_accepted) {
+		_last_valid_observation = observation.timestamp > 0 && observation.timestamp <= now
+					  ? observation.timestamp
+					  : now;
+
+		if (_measurement_rejected) {
+			PX4_INFO("landing target measurement accepted again");
+		}
+
+		_measurement_rejected = false;
+
+	} else {
+		if (!_measurement_rejected) {
+			PX4_INFO("landing target measurement rejected");
+		}
+
+		_measurement_rejected = true;
+	}
+
+	landing_target_innovations_s innovations{};
+	innovations.timestamp = observation.timestamp > 0 ? observation.timestamp : now;
+	innovations.innov_x = _filter.innovation()(0);
+	innovations.innov_y = _filter.innovation()(1);
+	innovations.innov_cov_x = _filter.innovationVariance()(0);
+	innovations.innov_cov_y = _filter.innovationVariance()(1);
+	_target_innovations_pub.publish(innovations);
 }
 
-void LandingTargetEstimator::_check_params(const bool force)
+void LandingTargetEstimator::_publish_target_pose(hrt_abstime now)
+{
+	landing_target_pose_s target_pose{};
+	target_pose.timestamp = _last_valid_observation;
+	target_pose.is_static = true;
+
+	const hrt_abstime timeout_us = static_cast<hrt_abstime>(_params.timeout * 1e6f);
+	const bool observation_fresh = _filter.initialized()
+				       && _last_valid_observation > 0
+				       && now - _last_valid_observation <= timeout_us;
+
+	if (observation_fresh && _vehicle_state_valid()) {
+		const matrix::Vector3f &target_absolute = _filter.state();
+		const matrix::Vector3f target_relative{target_absolute(0) - _vehicle_local_position.x,
+						       target_absolute(1) - _vehicle_local_position.y,
+						       target_absolute(2) - _vehicle_local_position.z};
+
+		target_pose.abs_pos_valid = true;
+		target_pose.x_abs = target_absolute(0);
+		target_pose.y_abs = target_absolute(1);
+		target_pose.z_abs = target_absolute(2);
+
+		target_pose.rel_pos_valid = true;
+		target_pose.x_rel = target_relative(0);
+		target_pose.y_rel = target_relative(1);
+		target_pose.z_rel = target_relative(2);
+		target_pose.cov_x_rel = _filter.variance()(0);
+		target_pose.cov_y_rel = _filter.variance()(1);
+
+		if (_vehicle_local_position.v_xy_valid) {
+			target_pose.rel_vel_valid = true;
+			target_pose.vx_rel = -_vehicle_local_position.vx;
+			target_pose.vy_rel = -_vehicle_local_position.vy;
+		}
+	}
+
+	_target_pose_pub.publish(target_pose);
+}
+
+bool LandingTargetEstimator::_vehicle_state_valid() const
+{
+	return _vehicle_attitude.timestamp > 0
+	       && _vehicle_local_position.timestamp > 0
+	       && _vehicle_local_position.xy_valid
+	       && _vehicle_local_position.z_valid
+	       && PX4_ISFINITE(_vehicle_local_position.x)
+	       && PX4_ISFINITE(_vehicle_local_position.y)
+	       && PX4_ISFINITE(_vehicle_local_position.z)
+	       && PX4_ISFINITE(_vehicle_attitude.q[0])
+	       && PX4_ISFINITE(_vehicle_attitude.q[1])
+	       && PX4_ISFINITE(_vehicle_attitude.q[2])
+	       && PX4_ISFINITE(_vehicle_attitude.q[3]);
+}
+
+void LandingTargetEstimator::_check_params(bool force)
 {
 	if (_parameter_update_sub.updated() || force) {
-		parameter_update_s pupdate;
-		_parameter_update_sub.copy(&pupdate);
-
+		parameter_update_s parameter_update{};
+		_parameter_update_sub.copy(&parameter_update);
 		_update_params();
-	}
-}
-
-void LandingTargetEstimator::_update_topics()
-{
-	_vehicleLocalPosition_valid = _vehicleLocalPositionSub.update(&_vehicleLocalPosition);
-	_vehicleAttitude_valid = _attitudeSub.update(&_vehicleAttitude);
-	_vehicle_acceleration_valid = _vehicle_acceleration_sub.update(&_vehicle_acceleration);
-
-
-	if (_irlockReportSub.update(&_irlockReport)) { //
-		_new_irlockReport = true;
-
-		if (!_vehicleAttitude_valid || !_vehicleLocalPosition_valid || !_vehicleLocalPosition.dist_bottom_valid) {
-			// don't have the data needed for an update
-			return;
-		}
-
-		if (!PX4_ISFINITE(_irlockReport.pos_y) || !PX4_ISFINITE(_irlockReport.pos_x)) {
-			return;
-		}
-
-		matrix::Vector<float, 3> sensor_ray; // ray pointing towards target in body frame
-		sensor_ray(0) = _irlockReport.pos_x * _params.scale_x; // forward
-		sensor_ray(1) = _irlockReport.pos_y * _params.scale_y; // right
-		sensor_ray(2) = 1.0f;
-
-		// rotate unit ray according to sensor orientation
-		_S_att = get_rot_matrix(_params.sensor_yaw);
-		sensor_ray = _S_att * sensor_ray;
-
-		// rotate the unit ray into the navigation frame
-		matrix::Quaternion<float> q_att(&_vehicleAttitude.q[0]);
-		_R_att = matrix::Dcm<float>(q_att);
-		sensor_ray = _R_att * sensor_ray;
-
-		if (fabsf(sensor_ray(2)) < 1e-6f) {
-			// z component of measurement unsafe, don't use this measurement
-			return;
-		}
-
-		_dist_z = _vehicleLocalPosition.dist_bottom - _params.offset_z;
-
-		// scale the ray s.t. the z component has length of _uncertainty_scale
-		_target_position_report.timestamp = _irlockReport.timestamp;
-		_target_position_report.rel_pos_x = sensor_ray(0) / sensor_ray(2) * _dist_z;
-		_target_position_report.rel_pos_y = sensor_ray(1) / sensor_ray(2) * _dist_z;
-		_target_position_report.rel_pos_z = _dist_z;
-
-		// Adjust relative position according to sensor offset
-		_target_position_report.rel_pos_x += _params.offset_x;
-		_target_position_report.rel_pos_y += _params.offset_y;
-
-		_new_irlockReport = true;
 	}
 }
 
 void LandingTargetEstimator::_update_params()
 {
-	param_get(_paramHandle.acc_unc, &_params.acc_unc);
-	param_get(_paramHandle.meas_unc, &_params.meas_unc);
-	param_get(_paramHandle.pos_unc_init, &_params.pos_unc_init);
-	param_get(_paramHandle.vel_unc_init, &_params.vel_unc_init);
+	param_get(_param_handles.position_uncertainty_initial, &_params.position_uncertainty_initial);
+	param_get(_param_handles.measurement_uncertainty_xy, &_params.measurement_uncertainty_xy);
+	param_get(_param_handles.measurement_uncertainty_z, &_params.measurement_uncertainty_z);
+	param_get(_param_handles.process_uncertainty, &_params.process_uncertainty);
+	param_get(_param_handles.innovation_gate, &_params.innovation_gate);
+	param_get(_param_handles.timeout, &_params.timeout);
 
-	int32_t mode = 0;
-	param_get(_paramHandle.mode, &mode);
-	_params.mode = (TargetMode)mode;
-
-	param_get(_paramHandle.scale_x, &_params.scale_x);
-	param_get(_paramHandle.scale_y, &_params.scale_y);
-
-	int32_t sensor_yaw = 0;
-	param_get(_paramHandle.sensor_yaw, &sensor_yaw);
-	_params.sensor_yaw = static_cast<enum Rotation>(sensor_yaw);
-
-	param_get(_paramHandle.offset_x, &_params.offset_x);
-	param_get(_paramHandle.offset_y, &_params.offset_y);
-	param_get(_paramHandle.offset_z, &_params.offset_z);
+	_params.position_uncertainty_initial = fmaxf(_params.position_uncertainty_initial, 1e-6f);
+	_params.measurement_uncertainty_xy = fmaxf(_params.measurement_uncertainty_xy, 1e-6f);
+	_params.measurement_uncertainty_z = fmaxf(_params.measurement_uncertainty_z, 1e-6f);
+	_params.process_uncertainty = fmaxf(_params.process_uncertainty, 0.f);
+	_params.innovation_gate = fmaxf(_params.innovation_gate, 0.f);
+	_params.timeout = math::constrain(_params.timeout, 0.1f, 10.f);
 }
-
 
 } // namespace landing_target_estimator

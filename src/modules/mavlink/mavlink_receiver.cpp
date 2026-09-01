@@ -2437,46 +2437,61 @@ MavlinkReceiver::handle_message_landing_target(mavlink_message_t *msg)
 	mavlink_landing_target_t landing_target;
 	mavlink_msg_landing_target_decode(msg, &landing_target);
 
-	//wsh edit
-	//  if (landing_target.position_valid && landing_target.frame == MAV_FRAME_LOCAL_NED) {
-	// 	landing_target_pose_s landing_target_pose{};
+	if (landing_target.frame != MAV_FRAME_BODY_FRD) {
+		if (landing_target.position_valid) {
+			mavlink_log_critical(&_mavlink_log_pub, "landing target: frame %" PRIu8 " unsupported\t",
+					     landing_target.frame);
+		}
 
-	// 	landing_target_pose.timestamp = _mavlink_timesync.sync_stamp(landing_target.time_usec);
-	// 	landing_target_pose.abs_pos_valid = true;
-	// 	landing_target_pose.x_abs = landing_target.x;
-	// 	landing_target_pose.y_abs = landing_target.y;
-	// 	landing_target_pose.z_abs = landing_target.z;
+		return;
+	}
 
-	// 	_landing_target_pose_pub.publish(landing_target_pose);
+	landing_target_observation_s observation{};
+	observation.timestamp = hrt_absolute_time();
+	observation.timestamp_sample = landing_target.time_usec > 0
+				       ? _mavlink_timesync.sync_stamp(landing_target.time_usec)
+				       : observation.timestamp;
+	observation.frame = landing_target.frame;
+	observation.target_num = landing_target.target_num;
 
-	// } else if (landing_target.position_valid) {
-	// 	// We only support MAV_FRAME_LOCAL_NED. In this case, the frame was unsupported.
-	// 	mavlink_log_critical(&_mavlink_log_pub, "landing target: coordinate frame %" PRIu8 " unsupported\t",
-	// 			     landing_target.frame);
-	// 	events::send<uint8_t>(events::ID("mavlink_rcv_lnd_target_unsup_coord"), events::Log::Error,
-	// 			      "landing target: unsupported coordinate frame {1}", landing_target.frame);
+	const bool position_finite = PX4_ISFINITE(landing_target.x)
+				     && PX4_ISFINITE(landing_target.y)
+				     && PX4_ISFINITE(landing_target.z);
 
-	// } else {
-	// 	irlock_report_s irlock_report{};
+	observation.position_valid = landing_target.position_valid && position_finite;
 
-	// 	irlock_report.timestamp = hrt_absolute_time();
-	// 	irlock_report.signature = landing_target.target_num;
-	// 	irlock_report.pos_x = landing_target.angle_x;
-	// 	irlock_report.pos_y = landing_target.angle_y;
-	// 	irlock_report.size_x = landing_target.size_x;
-	// 	irlock_report.size_y = landing_target.size_y;
+	if (observation.position_valid) {
+		observation.position_body[0] = landing_target.x;
+		observation.position_body[1] = landing_target.y;
+		observation.position_body[2] = landing_target.z;
 
-	// 	_irlock_report_pub.publish(irlock_report);
-	// }
-	landing_target_pose_s landing_target_pose{};
+		const bool quaternion_finite = PX4_ISFINITE(landing_target.q[0])
+					       && PX4_ISFINITE(landing_target.q[1])
+					       && PX4_ISFINITE(landing_target.q[2])
+					       && PX4_ISFINITE(landing_target.q[3]);
+		const float quaternion_norm_sq = landing_target.q[0] * landing_target.q[0]
+					       + landing_target.q[1] * landing_target.q[1]
+					       + landing_target.q[2] * landing_target.q[2]
+					       + landing_target.q[3] * landing_target.q[3];
 
-	landing_target_pose.timestamp = _mavlink_timesync.sync_stamp(landing_target.time_usec);
-	landing_target_pose.abs_pos_valid = landing_target.position_valid;
-	landing_target_pose.x_abs = landing_target.x;
-	landing_target_pose.y_abs = landing_target.y;
-	landing_target_pose.z_abs = landing_target.z;
+		if (quaternion_finite && quaternion_norm_sq > 1e-6f) {
+			const float inverse_norm = 1.f / sqrtf(quaternion_norm_sq);
 
-	_landing_target_pose_pub.publish(landing_target_pose);
+			for (int i = 0; i < 4; ++i) {
+				observation.q_body_target[i] = landing_target.q[i] * inverse_norm;
+			}
+
+			const float w = observation.q_body_target[0];
+			const float x = observation.q_body_target[1];
+			const float y = observation.q_body_target[2];
+			const float z = observation.q_body_target[3];
+			observation.yaw_body = atan2f(2.f * (w * z + x * y),
+						      1.f - 2.f * (y * y + z * z));
+			observation.orientation_valid = true;
+		}
+	}
+
+	_landing_target_observation_pub.publish(observation);
 }
 
 void

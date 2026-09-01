@@ -41,6 +41,86 @@
  */
 
 /**
+ * Enable MAVLink landing target estimator
+ *
+ * Start the estimator that consumes MAV_FRAME_BODY_FRD landing-target observations.
+ *
+ * @boolean
+ * @reboot_required true
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_INT32(LTEST_EN, 1);
+
+/**
+ * BODY_FRD landing target XY measurement variance
+ *
+ * Measurement variance used for the north and east components after converting
+ * the BODY_FRD observation into the local NED frame.
+ *
+ * @unit m^2
+ * @min 0.0001
+ * @max 4.0
+ * @decimal 4
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_MEAS_XY, 0.04f);
+
+/**
+ * BODY_FRD landing target Z measurement variance
+ *
+ * Measurement variance used for the down component after converting the
+ * BODY_FRD observation into the local NED frame.
+ *
+ * @unit m^2
+ * @min 0.0001
+ * @max 9.0
+ * @decimal 4
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_MEAS_Z, 0.09f);
+
+/**
+ * Static landing target process variance rate
+ *
+ * Rate at which position variance grows while no new visual observation is received.
+ * The target state itself remains fixed in local NED.
+ * Units are m^2/s.
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 5
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_PROC_UNC, 0.0025f);
+
+/**
+ * Landing target innovation gate
+ *
+ * Maximum normalized innovation squared for each position axis. Set to zero
+ * to disable innovation rejection.
+ *
+ * @min 0.0
+ * @max 100.0
+ * @decimal 1
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_GATE, 9.0f);
+
+/**
+ * Landing target observation timeout
+ *
+ * Maximum time to hold the last accepted fixed-target estimate without a new
+ * accepted visual observation. After this timeout the published pose is invalid.
+ *
+ * @unit s
+ * @min 0.1
+ * @max 10.0
+ * @decimal 2
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_TIMEOUT, 0.8f);
+
+/**
  * Landing target mode
  *
  * Configure the mode of the landing target. Depending on the mode, the landing target observations are used differently to aid position estimation.

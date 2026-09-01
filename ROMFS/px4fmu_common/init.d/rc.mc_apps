@@ -49,6 +49,14 @@ fi
 ###############################################################################
 
 #
+# Start the fixed landing-target estimator for MAVLink BODY_FRD observations.
+#
+if param compare -s LTEST_EN 1
+then
+	landing_target_estimator start
+fi
+
+#
 # Start Control Allocator
 #
 control_allocator start
