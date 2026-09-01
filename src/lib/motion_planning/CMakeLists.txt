@@ -33,6 +33,7 @@
 
 px4_add_library(motion_planning
 	VelocitySmoothing.cpp
+	HeadingSmoothing.cpp
 	PositionSmoothing.cpp
 	ManualVelocitySmoothingXY.cpp
 	ManualVelocitySmoothingZ.cpp
