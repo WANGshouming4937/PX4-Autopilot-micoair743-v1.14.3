@@ -63,7 +63,7 @@ static bool thread_running = false;		/**< daemon status flag */
 static int daemon_task;			/**< Handle of daemon task / thread */
 
 /* Run main loop at this rate in Hz. */
-static constexpr uint32_t landing_target_estimator_UPDATE_RATE_HZ = 50;
+static constexpr uint32_t landing_target_estimator_UPDATE_RATE_HZ = 30;
 
 /**
  * Landing target position estimator app start / stop handling function

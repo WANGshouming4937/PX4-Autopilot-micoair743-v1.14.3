@@ -123,6 +123,7 @@ set(msg_files
 	LandingGear.msg
 	LandingGearWheel.msg
 	LandingTargetInnovations.msg
+	LandingTargetObservation.msg
 	LandingTargetPose.msg
 	LaunchDetectionStatus.msg
 	LedControl.msg

@@ -81,8 +81,7 @@
 #include <uORB/topics/gps_inject_data.h>
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/input_rc.h>
-#include <uORB/topics/irlock_report.h>
-#include <uORB/topics/landing_target_pose.h>
+#include <uORB/topics/landing_target_observation.h>
 #include <uORB/topics/log_message.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/mavlink_tunnel.h>
@@ -304,8 +303,7 @@ private:
 	uORB::Publication<gimbal_manager_set_manual_control_s>	_gimbal_manager_set_manual_control_pub{ORB_ID(gimbal_manager_set_manual_control)};
 	uORB::Publication<gimbal_device_information_s>		_gimbal_device_information_pub{ORB_ID(gimbal_device_information)};
 	uORB::Publication<gimbal_device_attitude_status_s>	_gimbal_device_attitude_status_pub{ORB_ID(gimbal_device_attitude_status)};
-	uORB::Publication<irlock_report_s>			_irlock_report_pub{ORB_ID(irlock_report)};
-	uORB::Publication<landing_target_pose_s>		_landing_target_pose_pub{ORB_ID(landing_target_pose)};
+	uORB::Publication<landing_target_observation_s>	_landing_target_observation_pub{ORB_ID(landing_target_observation)};
 	uORB::Publication<log_message_s>			_log_message_pub{ORB_ID(log_message)};
 	uORB::Publication<mavlink_tunnel_s>			_mavlink_tunnel_pub{ORB_ID(mavlink_tunnel)};
 	uORB::Publication<obstacle_distance_s>			_obstacle_distance_pub{ORB_ID(obstacle_distance)};

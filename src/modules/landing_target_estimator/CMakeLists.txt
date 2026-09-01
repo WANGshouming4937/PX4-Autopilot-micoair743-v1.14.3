@@ -38,7 +38,6 @@ px4_add_module(
 	SRCS
 		landing_target_estimator_main.cpp
 		LandingTargetEstimator.cpp
-		KalmanFilter.cpp
+		StaticTargetKalmanFilter.cpp
 	DEPENDS
 	)
-
