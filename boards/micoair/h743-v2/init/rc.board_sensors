@@ -20,10 +20,62 @@ ms5611 -X -b 1 -a 0x77 start
 qmc5883l -I -a 0x0D -R 4 start
 
 # Power monitor: try INA228 first, fallback to board_adc
-if ina228 start -X -a 69 -t 1
+#if ina228 start -X -a 69 -t 1
+#then
+#    echo "ina228 start OK"
+#else
+#    echo "ina228 start failed, starting board_adc"
+#    board_adc start
+#fi
+
+# Start Digital power monitors
+ina_started=no
+
+if param compare SENS_EN_INA226 1
 then
-    echo "ina228 start OK"
-else
-    echo "ina228 start failed, starting board_adc"
-    board_adc start
+	if ina226 -X -b 1 -a 0x40 -t 1 start
+	then
+		echo "INA226 PM1 start OK"
+		ina_started=yes
+	else
+		echo "INA226 PM1 start failed"
+	fi
+
+	if [ $HAVE_PM2 = yes ]
+	then
+		if ina226 -X -b 2 -t 2 start
+		then
+			echo "INA226 PM2 start OK"
+		else
+			echo "INA226 PM2 start failed"
+		fi
+	fi
+fi
+
+if param compare SENS_EN_INA228 1
+then
+	if ina228 start -X -a 69 -t 1
+	then
+		echo "INA228 PM1 start OK"
+		ina_started=yes
+	else
+		echo "INA228 PM1 start failed"
+	fi
+
+	if [ $HAVE_PM2 = yes ]
+	then
+		if ina228 -X -b 2 -t 2 start
+		then
+			echo "INA228 PM2 start OK"
+		else
+			echo "INA228 PM2 start failed"
+		fi
+	fi
+fi
+
+# Fallback to ADC when no digital PM1 monitor is available
+if [ $ina_started = no ]
+then
+	echo "No INA power monitor started, starting board_adc"
+	board_adc start
 fi
