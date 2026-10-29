@@ -1,6 +1,7 @@
 #pragma once
 
 #include <float.h>
+#include <px4_platform_common/defines.h>
 #include <matrix/matrix/helper_functions.hpp>
 #include "VelocitySmoothing.hpp"
 

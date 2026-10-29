@@ -221,7 +221,7 @@ bool FlightTaskAuto::update()
 
 	// If the FlightTask generates a yaw or a yawrate setpoint that exceeds this value
 	// it will see its setpoint constrained here
-	_limitYawRate();
+	_smoothYaw();
 
 	_constraints.want_takeoff = _checkTakeoff();
 
@@ -259,8 +259,33 @@ void FlightTaskAuto::_prepareLandSetpoints()
 
 	bool range_dist_available = PX4_ISFINITE(_dist_to_bottom);
 
-	if (range_dist_available && _dist_to_bottom <= _param_mpc_land_alt3.get()) {
-		vertical_speed = _param_mpc_land_crawl_speed.get();
+	// Use home-relative altitude for landing slowdown when range finder is unavailable
+	const bool home_alt_available = _sub_home_position.get().valid_alt
+					&& _sub_vehicle_local_position.get().z_valid
+					&& PX4_ISFINITE(_position(2))
+					&& PX4_ISFINITE(_sub_home_position.get().z);
+
+	const float home_relative_alt = home_alt_available ?
+					_sub_home_position.get().z - _position(2) : NAN;
+
+	if (range_dist_available) {
+		// Original PX4 logic: use crawl speed with valid range measurement
+		if (_dist_to_bottom <= _param_mpc_land_alt3.get()) {
+			vertical_speed = _param_mpc_land_crawl_speed.get();
+		}
+	}else if (_param_lw_land_hrel.get() == 1 && home_alt_available) {
+		// Smoothly reduce land speed to crawl speed using home-relative altitude
+		const float alt3 = _param_mpc_land_alt3.get();
+		const float alt4 = alt3 * 0.5f;
+
+		if (alt3 > alt4 && alt4 >= 0.f) {
+			const float crawl_speed = math::interpolate(home_relative_alt,
+						alt4, alt3,
+						_param_mpc_land_crawl_speed.get(),
+						_param_mpc_land_speed.get());
+
+			vertical_speed = math::min(vertical_speed, crawl_speed);
+		}
 	}
 
 	if (_type_previous != WaypointType::land) {
@@ -384,7 +409,9 @@ bool FlightTaskAuto::_evaluateTriplets()
 		_yaw_setpoint = _yaw;
 		_yawspeed_setpoint = NAN;
 		_target_acceptance_radius = _sub_triplet_setpoint.get().current.acceptance_radius;
-		_updateInternalWaypoints();
+		_prev_wp = _triplet_prev_wp;
+		_target = _triplet_target;
+		_next_wp = _triplet_next_wp;
 		return true;
 	}
 
@@ -448,7 +475,6 @@ bool FlightTaskAuto::_evaluateTriplets()
 	// to the internal _triplet_target.
 	// TODO This is a hack and it would be much better if the navigator only sends out a waypoints once they have changed.
 
-	bool triplet_update = true;
 	const bool prev_next_validity_changed = (_prev_was_valid != _sub_triplet_setpoint.get().previous.valid)
 						|| (_next_was_valid != _sub_triplet_setpoint.get().next.valid);
 
@@ -458,7 +484,6 @@ bool FlightTaskAuto::_evaluateTriplets()
 	    && fabsf(_triplet_target(2) - tmp_target(2)) < 0.001f
 	    && !prev_next_validity_changed) {
 		// Nothing has changed: just keep old waypoints.
-		triplet_update = false;
 
 	} else {
 		_triplet_target = tmp_target;
@@ -501,28 +526,34 @@ bool FlightTaskAuto::_evaluateTriplets()
 		}
 
 		_next_was_valid = _sub_triplet_setpoint.get().next.valid;
+
+		_prev_wp = _triplet_prev_wp;
+		_target = _triplet_target;
+		_next_wp = _triplet_next_wp;
 	}
 
 	// activation/deactivation of weather vane is based on parameter WV_EN and setting of navigator (allow_weather_vane)
 	_weathervane.setNavigatorForceDisabled(_sub_triplet_setpoint.get().current.disable_weather_vane);
 
-	// Calculate the current vehicle state and check if it has updated.
-	State previous_state = _current_state;
-	_current_state = _getCurrentState();
-
-	if (triplet_update || (_current_state != previous_state) || _current_state == State::offtrack) {
-		_updateInternalWaypoints();
-	}
-
 	if (_param_com_obs_avoid.get()
 	    && _sub_vehicle_status.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+		Vector2f closest_pt_xy(_triplet_prev_wp);
+		const Vector2f prev_to_target_xy = Vector2f(_triplet_target - _triplet_prev_wp);
+
+		if (prev_to_target_xy.longerThan(FLT_EPSILON)) {
+			const Vector2f u_prev_to_target_xy = prev_to_target_xy.unit_or_zero();
+			const Vector2f prev_to_pos_xy = Vector2f(_position - _triplet_prev_wp);
+			closest_pt_xy = Vector2f(_triplet_prev_wp)
+					+ u_prev_to_target_xy * (prev_to_pos_xy * u_prev_to_target_xy);
+		}
+
 		_obstacle_avoidance.updateAvoidanceDesiredWaypoints(_triplet_target, _yaw_setpoint, _yawspeed_setpoint,
 				_triplet_next_wp,
 				_sub_triplet_setpoint.get().next.yaw,
 				_sub_triplet_setpoint.get().next.yawspeed_valid ? _sub_triplet_setpoint.get().next.yawspeed : (float)NAN,
 				_weathervane.isActive(), _sub_triplet_setpoint.get().current.type);
 		_obstacle_avoidance.checkAvoidanceProgress(
-			_position, _triplet_prev_wp, _target_acceptance_radius, Vector2f(_closest_pt));
+			_position, _triplet_prev_wp, _target_acceptance_radius, closest_pt_xy);
 	}
 
 	// set heading
@@ -660,74 +691,6 @@ bool FlightTaskAuto::_evaluateGlobalReference()
 
 	// check if everything is still finite
 	return PX4_ISFINITE(_reference_altitude) && PX4_ISFINITE(ref_lat) && PX4_ISFINITE(ref_lon);
-}
-
-State FlightTaskAuto::_getCurrentState()
-{
-	// Calculate the vehicle current state based on the Navigator triplets and the current position.
-	const Vector2f u_prev_to_target_xy = Vector2f(_triplet_target - _triplet_prev_wp).unit_or_zero();
-	const Vector2f pos_to_target_xy = Vector2f(_triplet_target - _position);
-	const Vector2f prev_to_pos_xy = Vector2f(_position - _triplet_prev_wp);
-	// Calculate the closest point to the vehicle position on the line prev_wp - target
-	const Vector2f closest_pt_xy = Vector2f(_triplet_prev_wp) + u_prev_to_target_xy * (prev_to_pos_xy *
-				       u_prev_to_target_xy);
-	_closest_pt = Vector3f(closest_pt_xy(0), closest_pt_xy(1), _triplet_target(2));
-
-	State return_state = State::none;
-
-	if (u_prev_to_target_xy * pos_to_target_xy < 0.0f) {
-		// Target is behind
-		return_state = State::target_behind;
-
-	} else if (u_prev_to_target_xy * prev_to_pos_xy < 0.0f && prev_to_pos_xy.longerThan(_target_acceptance_radius)) {
-		// Previous is in front
-		return_state = State::previous_infront;
-
-	} else if (Vector2f(_position - _closest_pt).longerThan(_target_acceptance_radius)) {
-		// Vehicle too far from the track
-		return_state = State::offtrack;
-
-	}
-
-	return return_state;
-}
-
-void FlightTaskAuto::_updateInternalWaypoints()
-{
-	// The internal Waypoints might differ from _triplet_prev_wp, _triplet_target and _triplet_next_wp.
-	// The cases where it differs:
-	// 1. The vehicle already passed the target -> go straight to target
-	// 2. Previous waypoint is in front of the vehicle -> go straight to previous waypoint
-	// 3. The vehicle is far from track -> go straight to closest point on track
-	switch (_current_state) {
-	case State::target_behind:
-		_target = _triplet_target;
-		_prev_wp = _position;
-		_next_wp = _triplet_next_wp;
-		break;
-
-	case State::previous_infront:
-		_next_wp = _triplet_target;
-		_target = _triplet_prev_wp;
-		_prev_wp = _position;
-		break;
-
-	case State::offtrack:
-		_next_wp = _triplet_target;
-		_target = _closest_pt;
-		_prev_wp = _position;
-		break;
-
-	case State::none:
-		_target = _triplet_target;
-		_prev_wp = _triplet_prev_wp;
-		_next_wp = _triplet_next_wp;
-		break;
-
-	default:
-		break;
-
-	}
 }
 
 bool FlightTaskAuto::_compute_heading_from_2D_vector(float &heading, Vector2f v)
@@ -977,12 +940,11 @@ void FlightTaskAuto::_updateCruiseSpeed()
 					 && in_auto_mission
 					 && (_type == WaypointType::position)
 					 && !next_is_land
-					 && (_current_state == State::none)
 					 && !_is_emergency_braking_active
 					 && !isTargetModified();
 
 	if (!use_airspeed_cruise) {
-		// Takeoff, Land, move-to-land approach, Loiter, off-track recovery, obstacle-modified
+		// Takeoff, Land, move-to-land approach, Loiter, obstacle-modified
 		// targets and non-Mission Auto modes keep the original ground-speed semantics.
 		_mc_cruise_airspeed = NAN;
 		_mc_cruise_speed = original_ground_speed;
@@ -1116,7 +1078,8 @@ void FlightTaskAuto::_updateTrajConstraints()
 	_position_smoothing.setTargetAcceptanceRadius(_target_acceptance_radius);
 
 	// Update the constraints of the trajectories
-	_position_smoothing.setMaxAccelerationXY(_param_mpc_acc_hor.get()); // TODO : Should be computed using heading
+	//_position_smoothing.setMaxAccelerationXY(_param_mpc_acc_hor.get()); // TODO : Should be computed using heading
+	_position_smoothing.setMaxAccelerationXY(_getMaxAccelerationXY());
 	_position_smoothing.setMaxVelocityXY(_param_mpc_xy_vel_max.get());
 	float max_jerk = _param_mpc_jerk_auto.get();
 	_position_smoothing.setMaxJerk({max_jerk, max_jerk, max_jerk}); // TODO : Should be computed using heading
@@ -1164,6 +1127,31 @@ void FlightTaskAuto::_updateTrajConstraints()
 	_constraints.speed_down = math::max(_constraints.speed_down, 1.2f * _param_mpc_z_v_auto_dn.get());;
 	_constraints.speed_up = math::max(_constraints.speed_up, 1.2f * _param_mpc_z_v_auto_up.get());;
 }
+
+
+float FlightTaskAuto::_getMaxAccelerationXY() const
+{
+	const float acc_low = _param_mpc_acc_hor.get();
+	const float acc_high = math::constrain(_param_lw_acc_hi.get(), 0.1f, acc_low);
+	const float v1 = math::max(_param_lw_acc_v1.get(), 0.0f);
+	const float v2 = _param_lw_acc_v2.get();
+
+	if (!PX4_ISFINITE(v1) || !PX4_ISFINITE(v2) || v2 <= v1) {
+		return acc_low;
+	}
+
+	const float speed = _velocity.xy().norm();
+
+	if (!PX4_ISFINITE(speed)) {
+		return acc_low;
+	}
+
+	const float s = math::constrain((speed - v1) / (v2 - v1), 0.0f, 1.0f);
+	const float h = s * s * (3.0f - 2.0f * s);
+
+	return acc_low + (acc_high - acc_low) * h;
+}
+
 
 bool FlightTaskAuto::_highEnoughForLandingGear()
 {

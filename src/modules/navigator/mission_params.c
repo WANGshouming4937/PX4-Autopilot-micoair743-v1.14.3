@@ -43,6 +43,56 @@
  * Mission parameters, accessible via MAVLink
  */
 
+ /**
+ * Maximum horizontal acceleration at high speed
+ *
+ * Maximum horizontal acceleration used during automatic mission
+ * flight when the horizontal speed reaches LW_ACC_V2.
+ * The acceleration limit smoothly decreases from MPC_ACC_HOR
+ * to this value between LW_ACC_V1 and LW_ACC_V2.
+ *
+ * @unit m/s^2
+ * @min 0.1
+ * @max 20.0
+ * @decimal 2
+ * @increment 0.1
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(LW_ACC_HI, 1.5f);
+
+/**
+ * High-speed acceleration transition start speed
+ *
+ * Horizontal speed at which the maximum horizontal acceleration
+ * begins to decrease from MPC_ACC_HOR toward LW_ACC_HI.
+ * Below this speed, MPC_ACC_HOR is used.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 40.0
+ * @decimal 1
+ * @increment 0.5
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(LW_ACC_V1, 12.0f);
+
+/**
+ * High-speed acceleration transition end speed
+ *
+ * Horizontal speed at which the maximum horizontal acceleration
+ * reaches LW_ACC_HI.
+ * Above this speed, LW_ACC_HI is used.
+ * This value must be greater than LW_ACC_V1.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 40.0
+ * @decimal 1
+ * @increment 0.5
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(LW_ACC_V2, 15.0f);
+
 /**
  * Take-off altitude
  *
