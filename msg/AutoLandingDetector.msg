@@ -14,3 +14,6 @@ bool motion_blocked
 bool support_evidence
 bool vel_blocked
 bool progress_blocked
+
+float32 eso_lambda_xy
+bool eso_contact_suspected

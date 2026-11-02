@@ -22,6 +22,8 @@ float32 alt			# altitude AMSL, in m
 float32 yaw			# yaw (only for multirotors), in rad [-PI..PI), NaN = hold current yaw
 bool yaw_valid			# true if yaw setpoint valid
 
+bool precision_yaw_control # PrecLand explicitly owns yaw; LAND must refresh its cached heading
+
 float32 yawspeed		# yawspeed (only for multirotors, in rad/s)
 bool yawspeed_valid		# true if yawspeed setpoint valid
 
@@ -35,3 +37,6 @@ bool gliding_enabled		# commands the vehicle to glide if the capability is avail
 float32 cruising_throttle	# the generally desired cruising throttle (not a hard constraint), only has an effect for rover
 
 bool disable_weather_vane   # VTOL: disable (in auto mode) the weather vane feature that turns the nose into the wind
+
+
+bool precision_descent_pause # PrecLand POSITION only: brake Z to zero velocity and hold the resulting altitude

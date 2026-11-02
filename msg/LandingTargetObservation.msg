@@ -5,6 +5,9 @@ uint8 FRAME_BODY_FRD = 12
 
 uint64 timestamp                    # time the observation was received by PX4 [us]
 uint64 timestamp_sample             # synchronized source sample time [us]
+uint64 source_timestamp             # Exact MAVLink time_usec; diagnostic join key, source clock [us]
+uint8 source_system
+uint8 source_component
 
 bool position_valid                 # true when position_body contains a current observation
 bool orientation_valid              # true when q_body_target and yaw_body are valid

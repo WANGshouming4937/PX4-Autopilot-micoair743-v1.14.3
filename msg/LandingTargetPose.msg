@@ -24,3 +24,8 @@ bool abs_pos_valid		# Flag showing whether absolute position is valid
 float32 x_abs			# X/north position of target, relative to origin (navigation frame) [meters]
 float32 y_abs			# Y/east position of target, relative to origin (navigation frame) [meters]
 float32 z_abs			# Z/down position of target, relative to origin (navigation frame) [meters]
+
+# Independent orientation estimate; never extends the position timestamp/validity.
+bool yaw_valid
+float32 yaw_abs # Airport forward direction in NED, rad [-pi, pi]
+uint64 yaw_timestamp # Time of the latest accepted orientation observation

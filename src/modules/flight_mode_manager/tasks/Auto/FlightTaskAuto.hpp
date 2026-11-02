@@ -159,6 +159,11 @@ protected:
 	StickYaw _stick_yaw{this};
 	matrix::Vector3f _land_position;
 	float _land_heading;
+	// ly_vision_landing: 本项目视觉yaw所有权/人工接管锁存，与triplet携带的下降暂停请求；均在任务激活时清除。
+	bool _precision_yaw_owned_last{false};
+	bool _precision_yaw_manual_override{false};
+	bool _precision_descent_pause{false};
+	void _updatePrecisionYawOwnership();
 	WaypointType _type_previous{WaypointType::idle}; /**< Previous type of current target triplet. */
 	bool _is_emergency_braking_active{false};
 	bool _want_takeoff{false};
@@ -196,6 +201,9 @@ protected:
 					(ParamFloat<px4::params::LW_ACC_V2>) _param_lw_acc_v2,
 					(ParamFloat<px4::params::MPC_ACC_UP_MAX>) _param_mpc_acc_up_max,
 					(ParamFloat<px4::params::MPC_ACC_DOWN_MAX>) _param_mpc_acc_down_max,
+					// ly_vision_landing: 2026-10-19新增暂停Z约束；普通自动飞行和紧急制动继续使用原有参数。
+					(ParamFloat<px4::params::PLD_Z_ACC>) _param_pld_z_acc,
+					(ParamFloat<px4::params::PLD_Z_JERK>) _param_pld_z_jerk,
 					(ParamFloat<px4::params::MPC_JERK_AUTO>) _param_mpc_jerk_auto,
 					(ParamFloat<px4::params::MPC_XY_TRAJ_P>) _param_mpc_xy_traj_p,
 					(ParamFloat<px4::params::MPC_XY_ERR_MAX>) _param_mpc_xy_err_max,

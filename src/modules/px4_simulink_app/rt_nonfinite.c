@@ -1,11 +1,11 @@
 /*
  * File: rt_nonfinite.c
  *
- * Code generated for Simulink model 'LW_ctrl_V1_11_260814'.
+ * Code generated for Simulink model 'LW_ctrl_V1_14_261102_lw_s100'.
  *
- * Model version                  : 8.1146
+ * Model version                  : 8.1269
  * Simulink Coder version         : 23.2 (R2023b) 01-Aug-2023
- * C/C++ source code generated on : Fri Aug 14 14:51:27 2026
+ * C/C++ source code generated on : Mon Nov  2 16:24:25 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex

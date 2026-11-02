@@ -43,6 +43,10 @@ set(msg_files
     LwMixer.msg
     LwManualctrl.msg
     LwAttctrl.msg
+    VisionLandingDebug.msg
+    VisionLandingConfig.msg
+    LandingTargetEstimatorDebug.msg
+    PrecisionLandingStatus.msg
     VisionLanding.msg
     AutoLandingDetector.msg
     AirspeedEstimator.msg

@@ -81,6 +81,10 @@ bool FlightTaskAuto::activate(const trajectory_setpoint_s &last_setpoint)
 	_airspeed_constraint_state = MissionAirspeedState::Normal;
 	_time_last_airspeed_warning = 0;
 
+	_precision_yaw_owned_last = false;
+	_precision_yaw_manual_override = false;
+	_precision_descent_pause = false;
+
 	return ret;
 }
 
@@ -114,6 +118,11 @@ bool FlightTaskAuto::update()
 	bool ret = FlightTask::update();
 	// always reset constraints because they might change depending on the type
 	_setDefaultConstraints();
+	// The request travels with the waypoint, so a delayed diagnostic publication
+	// cannot apply a stale pause to a resumed LAND or to another flight task.
+	_precision_descent_pause = _type == WaypointType::position
+				   && _sub_triplet_setpoint.get().current.valid
+				   && _sub_triplet_setpoint.get().current.precision_descent_pause;
 
 	// The only time a thrust set-point is sent out is during
 	// idle. Hence, reset thrust set-point to NAN in case the
@@ -160,7 +169,28 @@ bool FlightTaskAuto::update()
 		// Simple waypoint navigation: go to xyz target, with standard limitations
 		_position_setpoint = _target;
 		_velocity_setpoint.setNaN();
+
+		if (_precision_descent_pause) {
+			// A zero Z velocity target lets the existing jerk-limited trajectory
+			// stop where braking finishes. Holding the entry altitude instead
+			// would request a climb after the unavoidable stopping distance.
+			_position_setpoint(2) = NAN;
+			_velocity_setpoint(2) = 0.f;
+		}
 		break;
+	}
+
+	if (_precision_yaw_owned_last && _type != WaypointType::land) {
+		// The terminal altitude hold uses POSITION rather than LAND. Honour yaw
+		// stick takeover there too, without automatically taking it back on release.
+		if (_precision_yaw_manual_override && _param_mpc_land_rc_help.get()
+		    && _sticks.checkAndUpdateStickInputs()) {
+			rcHelpModifyYaw(_land_heading);
+			_yaw_setpoint = _land_heading;
+
+		} else if (!_precision_yaw_manual_override) {
+			_land_heading = _yaw_setpoint;
+		}
 	}
 
 	if (_param_com_obs_avoid.get()) {
@@ -295,6 +325,12 @@ void FlightTaskAuto::_prepareLandSetpoints()
 		_initial_land_position = Vector3f(_target(0), _target(1), NAN);
 	}
 
+	if (_precision_yaw_owned_last && !_precision_yaw_manual_override) {
+		// Native LAND caches its entry heading. Only PrecLand's explicit
+		// ownership flag permits a refreshed visual heading during descent.
+		_land_heading = _yaw_setpoint;
+	}
+
 	// Update xy-position in case of landing position changes (etc. precision landing)
 	_land_position = Vector3f(_target(0), _target(1), NAN);
 
@@ -388,6 +424,7 @@ void FlightTaskAuto::_smoothYaw()
 
 bool FlightTaskAuto::_evaluateTriplets()
 {
+	_updatePrecisionYawOwnership();
 	// TODO: fix the issues mentioned below
 	// We add here some conditions that are only required because:
 	// 1. navigator continuously sends triplet during mission due to yaw setpoint. This
@@ -533,7 +570,9 @@ bool FlightTaskAuto::_evaluateTriplets()
 	}
 
 	// activation/deactivation of weather vane is based on parameter WV_EN and setting of navigator (allow_weather_vane)
-	_weathervane.setNavigatorForceDisabled(_sub_triplet_setpoint.get().current.disable_weather_vane);
+	_weathervane.setNavigatorForceDisabled(_sub_triplet_setpoint.get().current.disable_weather_vane
+					     || _precision_yaw_owned_last);
+
 
 	if (_param_com_obs_avoid.get()
 	    && _sub_vehicle_status.get().vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
@@ -559,7 +598,11 @@ bool FlightTaskAuto::_evaluateTriplets()
 	// set heading
 	_weathervane.update();
 
-	if (_weathervane.isActive()) {
+	if (_precision_yaw_owned_last && _precision_yaw_manual_override) {
+		_yaw_setpoint = _land_heading;
+		_yawspeed_setpoint = NAN;
+
+	} else if (_weathervane.isActive()) {
 		_yaw_setpoint = NAN;
 		// use the yawrate setpoint from WV only if not moving lateral (velocity setpoint below half of _param_mpc_xy_cruise)
 		// otherwise, keep heading constant (as output from WV is not according to wind in this case)
@@ -594,6 +637,29 @@ bool FlightTaskAuto::_evaluateTriplets()
 	}
 
 	return true;
+}
+
+void FlightTaskAuto::_updatePrecisionYawOwnership()
+{
+	const auto &current = _sub_triplet_setpoint.get().current;
+	const bool requested = current.valid && PX4_ISFINITE(current.alt) && current.precision_yaw_control
+			       && current.yaw_valid && PX4_ISFINITE(current.yaw) && _is_yaw_good_for_control
+			       && (current.type == position_setpoint_s::SETPOINT_TYPE_POSITION
+				   || current.type == position_setpoint_s::SETPOINT_TYPE_LAND);
+	if (!requested) {
+		_precision_yaw_owned_last = false;
+		_precision_yaw_manual_override = false;
+		return;
+	}
+	if (!_precision_yaw_owned_last) {
+		_land_heading = _yaw;
+		_precision_yaw_manual_override = false;
+	}
+	_precision_yaw_owned_last = true;
+	if (_param_mpc_land_rc_help.get() && _sticks.checkAndUpdateStickInputs()
+	    && fabsf(_sticks.getYawExpo()) > FLT_EPSILON) {
+		_precision_yaw_manual_override = true;
+	}
 }
 
 void FlightTaskAuto::_set_heading_from_mode()
@@ -740,6 +806,9 @@ void FlightTaskAuto::_ekfResetHandlerHeading(float delta_psi)
 
     _heading_smoothing.reset(matrix::wrap_pi(_heading_smoothing.getSmoothedHeading() + delta_psi));
 
+    if (_precision_yaw_owned_last) {
+        _land_heading = matrix::wrap_pi(_land_heading + delta_psi);
+    }
     if (PX4_ISFINITE(_yaw_setpoint)) {
         _yaw_setpoint = matrix::wrap_pi(_yaw_setpoint + delta_psi);
     }
@@ -1095,6 +1164,20 @@ void FlightTaskAuto::_updateTrajConstraints()
 		// cutting out the feedforward
 		_constraints.speed_down = math::max(fabsf(_position_smoothing.getCurrentVelocityZ()), _constraints.speed_down);
 		_constraints.speed_up = math::max(fabsf(_position_smoothing.getCurrentVelocityZ()), _constraints.speed_up);
+
+	} else if (_precision_descent_pause) {
+		// Only precision altitude pauses use these gentler limits. Emergency
+		// braking above remains authoritative; normal LAND/RTL/manual are unchanged.
+		const float requested_accel = PX4_ISFINITE(_param_pld_z_acc.get())
+					     ? math::max(_param_pld_z_acc.get(), 0.1f) : 0.5f;
+		const float requested_jerk = PX4_ISFINITE(_param_pld_z_jerk.get())
+					    ? math::max(_param_pld_z_jerk.get(), 0.1f) : 1.f;
+		const float pause_accel = math::min(_param_mpc_acc_up_max.get(),
+						   math::min(_param_mpc_acc_down_max.get(), requested_accel));
+		const float pause_jerk = math::min(max_jerk, requested_jerk);
+		_position_smoothing.setMaxAccelerationZ(pause_accel);
+		_position_smoothing.setMaxJerk({max_jerk, max_jerk, pause_jerk});
+		_position_smoothing.setMaxVelocityZ(math::max(_param_mpc_z_v_auto_up.get(), _param_mpc_z_v_auto_dn.get()));
 
 	} else if (_unsmoothed_velocity_setpoint(2) < 0.f) { // up
 		float z_accel_constraint = _param_mpc_acc_up_max.get();

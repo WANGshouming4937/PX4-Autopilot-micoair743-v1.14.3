@@ -98,3 +98,24 @@ Makefile       text eol=lf
 /src/modules/mavlink/mavlink/pymavlink/tests/test_mavparm.py -text
 /src/modules/mavlink/mavlink/pymavlink/tools/mavlink_messages_size.py -text
 /src/modules/mavlink/mavlink/pymavlink/tools/mavtelemetry_datarates.py -text
+
+# Preserve exact pre-migration WIP bytes.
+/msg/AutoLandingDetector.msg -text
+/src/modules/px4_simulink_app/CMakeLists.txt -text
+/src/modules/px4_simulink_app/ert_main.c -text
+/src/modules/px4_simulink_app/hfile/multiword_types.h -text
+/src/modules/px4_simulink_app/hfile/rtGetInf.h -text
+/src/modules/px4_simulink_app/hfile/rtGetNaN.h -text
+/src/modules/px4_simulink_app/hfile/rt_defines.h -text
+/src/modules/px4_simulink_app/hfile/rt_nonfinite.h -text
+/src/modules/px4_simulink_app/hfile/rtmodel.h -text
+/src/modules/px4_simulink_app/hfile/rtwtypes.h -text
+/src/modules/px4_simulink_app/px4_simulink_app_params.c -text
+/src/modules/px4_simulink_app/rtGetInf.c -text
+/src/modules/px4_simulink_app/rtGetNaN.c -text
+/src/modules/px4_simulink_app/rt_nonfinite.c -text
+/src/modules/px4_simulink_app/LW_ctrl_V1_14_261102_lw_s100.c -text
+/src/modules/px4_simulink_app/LW_ctrl_V1_14_261102_lw_s100_data.c -text
+/src/modules/px4_simulink_app/hfile/LW_ctrl_V1_14_261102_lw_s100.h -text
+/src/modules/px4_simulink_app/hfile/LW_ctrl_V1_14_261102_lw_s100_private.h -text
+/src/modules/px4_simulink_app/hfile/LW_ctrl_V1_14_261102_lw_s100_types.h -text
