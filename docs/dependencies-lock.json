@@ -1,0 +1,350 @@
+{
+  "format_version": 1,
+  "source": "fixed local Git objects",
+  "excluded": [
+    {
+      "path": "Tools/simulation/flightgear/flightgear_bridge",
+      "commit": "f47ce7b5fbbb3aa43d33d2be1f6cd3746b13d5bf",
+      "url": "https://github.com/PX4/PX4-FlightGear-Bridge.git",
+      "status": "excluded_by_user",
+      "reason": "User explicitly excluded simulator bridge",
+      "available_local_repositories": 0
+    },
+    {
+      "path": "Tools/simulation/gazebo-classic/sitl_gazebo-classic",
+      "commit": "2e3ed9bfb04d8865e59380afa575dd37b0d6c8e0",
+      "url": "https://github.com/PX4/PX4-SITL_gazebo-classic.git",
+      "status": "excluded_by_user",
+      "reason": "User explicitly excluded simulator bridge",
+      "available_local_repositories": 2
+    },
+    {
+      "path": "Tools/simulation/jmavsim/jMAVSim",
+      "commit": "66b764ada522893c05224950aa6268c809f8e48a",
+      "url": "https://github.com/PX4/jMAVSim.git",
+      "status": "excluded_by_user",
+      "reason": "User explicitly excluded simulator bridge",
+      "available_local_repositories": 2
+    },
+    {
+      "path": "Tools/simulation/jsbsim/jsbsim_bridge",
+      "commit": "68de2cc63ded9a0d6641d45e9eb3ed2b43454cba",
+      "url": "https://github.com/PX4/px4-jsbsim-bridge.git",
+      "status": "excluded_by_user",
+      "reason": "User explicitly excluded simulator bridge",
+      "available_local_repositories": 2
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "microcdr",
+      "commit": "99672492c5ef9fc378a8835b0bce9b2f7fa41306",
+      "tree": "4445578c75b423f2b2b110dcb8a037a2e385eaca",
+      "files": 65,
+      "nested": [],
+      "url": "https://github.com/eProsima/Micro-CDR.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "microcdr/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "platforms/nuttx/NuttX/apps",
+      "commit": "a489381b49835ecba6f3b873b5071d882a18152f",
+      "tree": "2714db54d534115fbcb39e8c9fa5ca7775267c88",
+      "files": 3063,
+      "nested": [],
+      "url": "https://github.com/PX4/NuttX-apps.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "platforms/nuttx/NuttX/apps/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "platforms/nuttx/NuttX/nuttx",
+      "commit": "de41e7feaeffaec3ce65327e9569e8fdb553ca3d",
+      "tree": "6126342000c4375e97aa5a1711059d610d3a2452",
+      "files": 16661,
+      "nested": [],
+      "url": "https://github.com/PX4/NuttX.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "platforms/nuttx/NuttX/nuttx/LICENSE"
+      ],
+      "symlinks": 1,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/cyphal/legacy_data_types",
+      "commit": "36a01e428b110ff84c8babe5b65667b5e3037d5e",
+      "tree": "1951d4561c4171b886caf49c58b4fd6cfda3dca1",
+      "files": 306,
+      "nested": [],
+      "url": "https://github.com/PX4/public_regulated_data_types.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/cyphal/legacy_data_types/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/cyphal/libcanard",
+      "commit": "5c69d451ab0787a81dcb615692d707f2a286f5e5",
+      "tree": "4201fca40034e59ed0a5c40f6245c0933a291f0f",
+      "files": 30,
+      "nested": [],
+      "url": "https://github.com/opencyphal/libcanard.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/cyphal/libcanard/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/cyphal/public_regulated_data_types",
+      "commit": "d0bd6516dac8ff61287fe49a9f2c75e7d4dc1b8e",
+      "tree": "3f000924fd3e4e2aeb8f38ac9a3b103c20f24900",
+      "files": 239,
+      "nested": [],
+      "url": "https://github.com/opencyphal/public_regulated_data_types.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/cyphal/public_regulated_data_types/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/gps/devices",
+      "commit": "c46cdebbbe98b06aeab16d89d79cf1852378893c",
+      "tree": "c1a950c90808f4884eaa240a990752c48a07691e",
+      "files": 28,
+      "nested": [],
+      "url": "https://github.com/WANGshouming4937/PX4-GPSDrivers.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/gps/devices/LICENSE.md"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/uavcan/libuavcan/dsdl",
+      "commit": "5d303e1a9eb9bce17bb58a2378c1666d1cef3665",
+      "tree": "f5d9e3e759aca5f35e4a2f661b4c1bd202510d84",
+      "files": 103,
+      "nested": [],
+      "url": "https://github.com/dronecan/DSDL",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/uavcan/libuavcan/dsdl/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/uavcan/libuavcan/libuavcan/dsdl_compiler/pyuavcan",
+      "commit": "7aed0a9705c7b931eda1cd4491729cdc88cc82bf",
+      "tree": "7033ce6af083838e13b86f61f37e0b2cb7afa548",
+      "files": 49,
+      "nested": [],
+      "url": "https://github.com/dronecan/pydronecan",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/uavcan/libuavcan/libuavcan/dsdl_compiler/pyuavcan/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/drivers/uavcan/libuavcan",
+      "commit": "9a0fd624c448cad5633720676233f74846387a9f",
+      "tree": "a2c1b67d91addbbca51b99765e0fe0477c34caf9",
+      "files": 237,
+      "nested": [
+        "src/drivers/uavcan/libuavcan/dsdl",
+        "src/drivers/uavcan/libuavcan/libuavcan/dsdl_compiler/pyuavcan"
+      ],
+      "url": "https://github.com/dronecan/libuavcan.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/drivers/uavcan/libuavcan/LICENSE",
+        "src/drivers/uavcan/libuavcan/dsdl/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": [
+        "src/drivers/uavcan/libuavcan/.gitmodules"
+      ]
+    },
+    {
+      "path": "src/lib/crypto/libtomcrypt",
+      "commit": "673f5ce29015a9bba3c96792920a10601b5b0718",
+      "tree": "0f15d04172a5220ffd6d45767e02e2f0504fafdd",
+      "files": 669,
+      "nested": [],
+      "url": "https://github.com/PX4/libtomcrypt.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/lib/crypto/libtomcrypt/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/lib/crypto/libtommath",
+      "commit": "fd73d7630b9d3ed5a79d613ff680a549e9780de7",
+      "tree": "e5284562b29159fc37c55fdea52f252e4d63b8ea",
+      "files": 217,
+      "nested": [],
+      "url": "https://github.com/PX4/libtommath.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/lib/crypto/libtommath/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/lib/crypto/monocypher",
+      "commit": "baca5d31259c598540e4d1284bc8d8f793abf83a",
+      "tree": "8b85064e94bb95f3e4e2b3e7b71528b6d3d35165",
+      "files": 196,
+      "nested": [],
+      "url": "https://github.com/PX4/Monocypher.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/lib/crypto/monocypher/LICENCE.md"
+      ],
+      "symlinks": 63,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/lib/events/libevents/libs/cpp/parse/nlohmann_json",
+      "commit": "bc889afb4c5bf1c0d8ee29ef35eaaf4c8bef8a5d",
+      "tree": "0db3d76a5dc244bf5f371432c10f6d42093ad2fa",
+      "files": 1070,
+      "nested": [],
+      "url": "https://github.com/nlohmann/json.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/lib/events/libevents/libs/cpp/parse/nlohmann_json/LICENSE.MIT"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    },
+    {
+      "path": "src/lib/events/libevents",
+      "commit": "a9a3fc07abb8bd8eb6fbca64c35b479cab91ff35",
+      "tree": "a8836f6b47ebdcacf519644d2f463b450c2ecd48",
+      "files": 43,
+      "nested": [
+        "src/lib/events/libevents/libs/cpp/parse/nlohmann_json"
+      ],
+      "url": "https://github.com/mavlink/libevents.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/lib/events/libevents/LICENSE.md"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": [
+        "src/lib/events/libevents/.gitmodules"
+      ]
+    },
+    {
+      "path": "src/modules/mavlink/mavlink/pymavlink",
+      "commit": "2ca2c13b54b4c75dd71c79acafc7ec40d9cb4965",
+      "tree": "96e4e77411ded46ce5d9830142d164833772faa3",
+      "files": 281,
+      "nested": [],
+      "url": "https://github.com/ardupilot/pymavlink.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/modules/mavlink/mavlink/pymavlink/COPYING"
+      ],
+      "symlinks": 2,
+      "excluded_metadata": [
+        "src/modules/mavlink/mavlink/pymavlink/.gitmodules"
+      ]
+    },
+    {
+      "path": "src/modules/mavlink/mavlink",
+      "commit": "18955a04c7c7467e00ea42b704addb4a9c12b53a",
+      "tree": "0bbd3da237913fd6f380aa4f9233de815ab33996",
+      "files": 49,
+      "nested": [
+        "src/modules/mavlink/mavlink/pymavlink"
+      ],
+      "url": "https://github.com/mavlink/mavlink.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/modules/mavlink/mavlink/COPYING",
+        "src/modules/mavlink/mavlink/pymavlink/COPYING"
+      ],
+      "symlinks": 2,
+      "excluded_metadata": [
+        "src/modules/mavlink/mavlink/.gitmodules",
+        "src/modules/mavlink/mavlink/pymavlink/.gitmodules"
+      ]
+    },
+    {
+      "path": "src/modules/uxrce_dds_client/Micro-CDR",
+      "commit": "1c712a08cf5571af0435bf1d881075e813c09513",
+      "tree": "c3941733b391430770625a9dc5d1c659529a4d98",
+      "files": 62,
+      "nested": [],
+      "url": "https://github.com/eProsima/Micro-CDR.git",
+      "migration": "git blobs vendored; nested gitlinks recursively expanded",
+      "license_paths": [
+        "src/modules/uxrce_dds_client/Micro-CDR/LICENSE"
+      ],
+      "symlinks": 0,
+      "excluded_metadata": []
+    }
+  ],
+  "migration_patches": {
+    "attribute_exceptions": {
+      ".gitattributes": [
+        "platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n-grrose/scripts/linker_script.ld",
+        "platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n-rsk1mb/scripts/linker_script.ld",
+        "platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n-rsk2mb/scripts/linker_script.ld",
+        "platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n/scripts/linker_script.ld",
+        "platforms/nuttx/NuttX/nuttx/tools/bl602/partition_cfg_2M_nuttx.toml",
+        "src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/stdafx.cpp",
+        "src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/stdafx.h",
+        "src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/targetver.h",
+        "src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/testmav.cpp",
+        "src/modules/mavlink/mavlink/pymavlink/generator/java/lib/Messages/Description.java",
+        "src/modules/mavlink/mavlink/pymavlink/generator/java/lib/Messages/Units.java",
+        "src/modules/mavlink/mavlink/pymavlink/generator/java/lib/Messages/UnitsEnum.java",
+        "src/modules/mavlink/mavlink/pymavlink/generator/javascript/local_modules/long/README.md",
+        "src/modules/mavlink/mavlink/pymavlink/generator/mavgen_cs.py",
+        "src/modules/mavlink/mavlink/pymavlink/tests/test_fgFDM.py",
+        "src/modules/mavlink/mavlink/pymavlink/tests/test_mavexpression.py",
+        "src/modules/mavlink/mavlink/pymavlink/tests/test_mavparm.py",
+        "src/modules/mavlink/mavlink/pymavlink/tools/mavlink_messages_size.py",
+        "src/modules/mavlink/mavlink/pymavlink/tools/mavtelemetry_datarates.py"
+      ],
+      "src\\lib\\crypto\\libtomcrypt\\.gitattributes": [
+        ".gitignore",
+        "appveyor.yml",
+        "notes/rsa-testvectors/oaep-int.txt",
+        "notes/rsa-testvectors/oaep-vect.txt",
+        "notes/rsa-testvectors/pkcs1v15crypt-vectors.txt",
+        "notes/rsa-testvectors/pkcs1v15sign-vectors.txt",
+        "notes/rsa-testvectors/pss-int.txt",
+        "notes/rsa-testvectors/pss-vect.txt",
+        "notes/rsa-testvectors/readme.txt"
+      ],
+      "src\\lib\\crypto\\libtommath\\.gitattributes": [
+        "appveyor.yml"
+      ]
+    },
+    "description": "Targeted -text rules preserve original CRLF blobs from vendored repositories under main repository attributes."
+  }
+}

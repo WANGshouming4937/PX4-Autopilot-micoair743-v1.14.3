@@ -77,3 +77,24 @@ Makefile.* text eol=lf
 .gitattributes text eol=lf
 .gitignore     text eol=lf
 Makefile       text eol=lf
+
+# Preserve original vendored blob bytes across checkouts.
+/platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n-grrose/scripts/linker_script.ld -text
+/platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n-rsk1mb/scripts/linker_script.ld -text
+/platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n-rsk2mb/scripts/linker_script.ld -text
+/platforms/nuttx/NuttX/nuttx/boards/renesas/rx65n/rx65n/scripts/linker_script.ld -text
+/platforms/nuttx/NuttX/nuttx/tools/bl602/partition_cfg_2M_nuttx.toml -text
+/src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/stdafx.cpp -text
+/src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/stdafx.h -text
+/src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/targetver.h -text
+/src/modules/mavlink/mavlink/pymavlink/generator/C/test/windows/testmav.cpp -text
+/src/modules/mavlink/mavlink/pymavlink/generator/java/lib/Messages/Description.java -text
+/src/modules/mavlink/mavlink/pymavlink/generator/java/lib/Messages/Units.java -text
+/src/modules/mavlink/mavlink/pymavlink/generator/java/lib/Messages/UnitsEnum.java -text
+/src/modules/mavlink/mavlink/pymavlink/generator/javascript/local_modules/long/README.md -text
+/src/modules/mavlink/mavlink/pymavlink/generator/mavgen_cs.py -text
+/src/modules/mavlink/mavlink/pymavlink/tests/test_fgFDM.py -text
+/src/modules/mavlink/mavlink/pymavlink/tests/test_mavexpression.py -text
+/src/modules/mavlink/mavlink/pymavlink/tests/test_mavparm.py -text
+/src/modules/mavlink/mavlink/pymavlink/tools/mavlink_messages_size.py -text
+/src/modules/mavlink/mavlink/pymavlink/tools/mavtelemetry_datarates.py -text

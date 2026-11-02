@@ -71,21 +71,16 @@ function(px4_add_git_submodule)
 	endif()
 
 	execute_process(
-		COMMAND Tools/check_submodules.sh ${REL_PATH}
+		COMMAND bash Tools/check_submodules.sh ${REL_PATH}
 		WORKING_DIRECTORY ${PX4_SOURCE_DIR}
-		)
-
-	string(REPLACE "/" "_" NAME ${PATH})
-	string(REPLACE "." "_" NAME ${NAME})
-
-	add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
-		COMMAND Tools/check_submodules.sh ${REL_PATH}
-		COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
-		DEPENDS ${PX4_SOURCE_DIR}/.gitmodules ${PATH}/.git
-		COMMENT "git submodule ${REL_PATH}"
+		RESULT_VARIABLE vendored_check_result
+	)
+	if(NOT vendored_check_result EQUAL 0)
+		message(FATAL_ERROR "Vendored dependency missing: ${REL_PATH}")
+	endif()
+	add_custom_target(${TARGET}
+		COMMAND bash Tools/check_submodules.sh ${REL_PATH}
 		WORKING_DIRECTORY ${PX4_SOURCE_DIR}
-		USES_TERMINAL
-		)
-
-	add_custom_target(${TARGET} DEPENDS git_init_${NAME}.stamp)
+		VERBATIM
+	)
 endfunction()

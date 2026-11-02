@@ -55,10 +55,10 @@ px4_add_module(
 		drivers_magnetometer
 	)
 
-include(sitl_targets_flightgear.cmake)
-include(sitl_targets_gazebo-classic.cmake)
-include(sitl_targets_jmavsim.cmake)
-include(sitl_targets_jsbsim.cmake)
+# flightgear bridge excluded by user
+# gazebo-classic bridge excluded by user
+# jmavsim bridge excluded by user
+# jsbsim bridge excluded by user
 
 
 # none_iris (legacy compatibility launch helper)
