@@ -134,29 +134,40 @@ if (os.path.exists('src/lib/ecl/.git')):
 """
 
 
+
 # Mavlink
-if (os.path.exists('src/modules/mavlink/mavlink/.git')):
+if os.path.exists('src/modules/mavlink/mavlink/.git'):
     mavlink_git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
                                       cwd='src/modules/mavlink/mavlink', stderr=subprocess.STDOUT).decode('utf-8').strip()
-    mavlink_git_version_short = mavlink_git_version[0:16]
+else:
+    # MAVLink source is vendored; use its original fixed commit.
+    mavlink_git_version = '18955a04c7c7467e00ea42b704addb4a9c12b53a'
 
-    header += f"""
+mavlink_git_version_short = mavlink_git_version[0:16]
+
+header += f"""
 #define MAVLINK_LIB_GIT_VERSION_STR  "{mavlink_git_version}"
 #define MAVLINK_LIB_GIT_VERSION_BINARY 0x{mavlink_git_version_short}
 """
 
 
+
 # NuttX
-if (os.path.exists('platforms/nuttx/NuttX/nuttx/.git')):
+if os.path.exists('platforms/nuttx/NuttX/nuttx/.git'):
     nuttx_git_tags = subprocess.check_output('git -c versionsort.suffix=- tag --sort=v:refname'.split(),
                                   cwd='platforms/nuttx/NuttX/nuttx', stderr=subprocess.STDOUT).decode('utf-8').strip()
     nuttx_git_tag = re.findall(r'nuttx-[0-9]+\.[0-9]+\.[0-9]+', nuttx_git_tags)[-1].replace("nuttx-", "v")
     nuttx_git_tag = re.sub('-.*', '.0', nuttx_git_tag)
     nuttx_git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
                                       cwd='platforms/nuttx/NuttX/nuttx', stderr=subprocess.STDOUT).decode('utf-8').strip()
-    nuttx_git_version_short = nuttx_git_version[0:16]
+else:
+    # NuttX source is vendored; use its original fixed version.
+    nuttx_git_version = 'de41e7feaeffaec3ce65327e9569e8fdb553ca3d'
+    nuttx_git_tag = 'v11.0.0'
 
-    header += f"""
+nuttx_git_version_short = nuttx_git_version[0:16]
+
+header += f"""
 #define NUTTX_GIT_VERSION_STR  "{nuttx_git_version}"
 #define NUTTX_GIT_VERSION_BINARY 0x{nuttx_git_version_short}
 #define NUTTX_GIT_TAG_STR  "{nuttx_git_tag}"
