@@ -38,6 +38,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
+#include <uORB/topics/landing_target_estimator_debug.h>
 #include <uORB/topics/landing_target_innovations.h>
 #include <uORB/topics/landing_target_observation.h>
 #include <uORB/topics/landing_target_pose.h>
@@ -47,6 +48,7 @@
 #include <matrix/math.hpp>
 
 #include "StaticTargetKalmanFilter.h"
+#include "LandingTargetHeading.hpp"
 
 using namespace time_literals;
 
@@ -80,6 +82,7 @@ private:
 		float timeout{0.8f};
 	} _params{};
 
+	uORB::Publication<landing_target_estimator_debug_s> _debug_pub{ORB_ID(landing_target_estimator_debug)};
 	uORB::Publication<landing_target_pose_s> _target_pose_pub{ORB_ID(landing_target_pose)};
 	uORB::Publication<landing_target_innovations_s> _target_innovations_pub{ORB_ID(landing_target_innovations)};
 
@@ -92,6 +95,7 @@ private:
 	vehicle_local_position_s _vehicle_local_position{};
 
 	StaticTargetKalmanFilter _filter{};
+	LandingTargetHeading _heading;
 	hrt_abstime _last_predict{0};
 	hrt_abstime _last_valid_observation{0};
 	bool _measurement_rejected{false};
@@ -106,6 +110,9 @@ private:
 	void _handle_observation(const landing_target_observation_s &observation, hrt_abstime now);
 	void _publish_target_pose(hrt_abstime now);
 	bool _vehicle_state_valid() const;
+	landing_target_estimator_debug_s _debug_snapshot(hrt_abstime now) const;
+	void _publish_debug(landing_target_estimator_debug_s &report);
+
 };
 
 } // namespace landing_target_estimator

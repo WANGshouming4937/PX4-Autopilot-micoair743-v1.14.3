@@ -33,7 +33,7 @@
 
 /**
  * @file px4_simulink_app_params.c
- * Hexacopter S550 controller parameters.
+ * Quad S80 controller parameters.
  *
  * @author wsh
  */
@@ -55,7 +55,7 @@
  * @decimal 1
  * @group Vision Landing
  */
-PARAM_DEFINE_FLOAT(VL_MAX_POS_ERR, 3.0f);
+PARAM_DEFINE_FLOAT(VL_MAX_POS_ERR, 5.0f);
 
 /**
  * Vision landing maximum allowed absolute position jump
@@ -87,7 +87,7 @@ PARAM_DEFINE_FLOAT(VL_MAX_ABS_JUMP, 1.0f);
  * @decimal 1
  * @group Vision Landing
  */
-PARAM_DEFINE_FLOAT(VL_MAX_REF_SPD, 0.6f);
+PARAM_DEFINE_FLOAT(VL_MAX_REF_SPD, 0.8f);
 
 /**
  * Vision landing minimum test altitude
@@ -136,7 +136,6 @@ PARAM_DEFINE_FLOAT(VL_WZ_MAX, 40.0f);
  */
 PARAM_DEFINE_FLOAT(LW_LED, 0.0f);
 
-
 /**
  * Aircraft mass scale factor
  *
@@ -151,23 +150,6 @@ PARAM_DEFINE_FLOAT(LW_LED, 0.0f);
  * @group LW Model Configuration
  */
 PARAM_DEFINE_FLOAT(LW_MASS_K, 1.0f);
-
-/**
- * Thrust coefficient correction factor
- *
- * Scales the nominal thrust coefficient to compensate for differences
- * between the nominal propulsion model and the actual thrust performance.
- * A value of 1.0 uses the nominal thrust coefficient without correction.
- * Values below 1.0 indicate lower actual thrust than the nominal model,
- * while values above 1.0 indicate higher actual thrust.
- *
- * @min 0.5
- * @max 1.5
- * @decimal 2
- * @group LW Model Configuration
- */
-PARAM_DEFINE_FLOAT(LW_CT_K, 1.0f);
-
 
 /**
  * Roll-axis moment of inertia scale factor
@@ -208,18 +190,6 @@ PARAM_DEFINE_FLOAT(LW_JY_K, 1.0f);
  * @group LW Model Configuration
  */
 PARAM_DEFINE_FLOAT(LW_JZ_K, 1.0f);
-
-
-/**
- * Installation angle between lifting wing and rotor plane
- *
- * @unit deg
- * @min 0.0
- * @max 90.0
- * @decimal 1
- * @group LW Model Configuration
- */
-PARAM_DEFINE_FLOAT(LW_ANGLE, 32.0f);
 
 /**
  * Right aileron deflection direction calibration
@@ -302,7 +272,7 @@ PARAM_DEFINE_FLOAT(LW_SERVOR_CON, 0.0f);
  * @value 1 Compensate aero force in offboard mode
  * @group LW Model Configuration
  */
-PARAM_DEFINE_INT32(LW_AERO_COM, 0);
+PARAM_DEFINE_INT32(LW_AERO_COM, 1);
 
 /**
  * Drag coefficient in aerodynamic models
@@ -312,7 +282,7 @@ PARAM_DEFINE_INT32(LW_AERO_COM, 0);
  * @decimal 2
  * @group LW Model Configuration
  */
-PARAM_DEFINE_FLOAT(LW_AERO_C0, 0.1f);
+PARAM_DEFINE_FLOAT(LW_AERO_C0, 2.0f);
 
 /**
  * Lift coefficient in aerodynamic models
@@ -322,7 +292,7 @@ PARAM_DEFINE_FLOAT(LW_AERO_C0, 0.1f);
  * @decimal 2
  * @group LW Model Configuration
  */
-PARAM_DEFINE_FLOAT(LW_AERO_C1, 1.5f);
+PARAM_DEFINE_FLOAT(LW_AERO_C1, 0.5f);
 
 /**
  * Side drag coefficient in aerodynamic models
@@ -332,7 +302,7 @@ PARAM_DEFINE_FLOAT(LW_AERO_C1, 1.5f);
  * @decimal 2
  * @group LW Model Configuration
  */
-PARAM_DEFINE_FLOAT(LW_AERO_Y0, 0.3f);
+PARAM_DEFINE_FLOAT(LW_AERO_Y0, 2.0f);
 
 /**
  * Roll torque coefficient of rudder surface
@@ -355,25 +325,248 @@ PARAM_DEFINE_FLOAT(LW_LBCL_D, 0.0f);
 PARAM_DEFINE_FLOAT(LW_LBCM_D, -0.0f);
 
 //******************************************************************************************************************//
-//**********************************************Disturdance Estimation**********************************************//
+//**********************************************Disturbance Estimation**********************************************//
 //******************************************************************************************************************//
+/**
+ * Enable ESO ground contact protection
+ *
+ * Enables early ground contact detection in position control modes.
+ * When contact is suspected, the roll and pitch ESO disturbance
+ * compensation is smoothly reduced without disabling the rate PI controller.
+ *
+ * @value 0 Disable
+ * @value 1 Enable
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_INT32(ESO_GC_EN, 0);
+
+/**
+ * ESO ground contact detection maximum altitude
+ *
+ * Maximum height above the expected landing ground for enabling
+ * early contact detection. Requires valid terrain distance or
+ * a valid home-relative height at a same-elevation landing site.
+ *
+ * @unit m
+ * @min 0.1
+ * @max 5.0
+ * @decimal 2
+ * @increment 0.1
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_ALT, 0.8f);
+
+/**
+ * ESO ground contact maximum horizontal velocity
+ *
+ * Maximum horizontal ground speed allowed for early contact
+ * detection. Higher horizontal speeds inhibit contact detection.
+ *
+ * @unit m/s
+ * @min 0.05
+ * @max 2.0
+ * @decimal 2
+ * @increment 0.05
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_VXY, 0.25f);
+
+/**
+ * ESO ground contact minimum descent command
+ *
+ * Minimum positive-down vertical velocity command required
+ * to recognize intentional descent in position control modes.
+ *
+ * @unit m/s
+ * @min 0.02
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_CMD, 0.12f);
+
+/**
+ * ESO ground contact maximum blocked vertical velocity
+ *
+ * Maximum absolute vertical velocity used to identify
+ * blocked downward motion during landing.
+ *
+ * @unit m/s
+ * @min 0.02
+ * @max 0.5
+ * @decimal 2
+ * @increment 0.01
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_VZ, 0.12f);
+
+/**
+ * ESO ground contact minimum vertical velocity deficit
+ *
+ * Minimum difference between the commanded downward velocity
+ * and actual vertical velocity required for blocked-motion evidence.
+ *
+ * @unit m/s
+ * @min 0.02
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_DVZ, 0.10f);
+
+/**
+ * ESO ground contact minimum upward support acceleration
+ *
+ * Minimum upward acceleration residual required as support
+ * force evidence. Expressed as a percentage of gravity.
+ *
+ * @unit %
+ * @min 0.0
+ * @max 100.0
+ * @decimal 1
+ * @increment 1.0
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_SUP, 5.0f);
+
+/**
+ * ESO ground contact minimum support acceleration increase
+ *
+ * Minimum increase of upward acceleration residual relative
+ * to the estimated support baseline.
+ * Expressed as a percentage of gravity.
+ *
+ * @unit %
+ * @min 0.0
+ * @max 100.0
+ * @decimal 1
+ * @increment 1.0
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_DSUP, 3.0f);
+
+/**
+ * ESO ground contact confirmation time
+ *
+ * Minimum duration of simultaneous blocked-motion and support
+ * evidence before early ground contact is confirmed.
+ * This detection only manages ESO compensation and does not
+ * directly activate low-thrust landing protection.
+ *
+ * @unit s
+ * @min 0.02
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.01
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_T, 0.12f);
+
+/**
+ * ESO ground contact compensation disengagement time constant
+ *
+ * First-order time constant for reducing roll and pitch ESO
+ * disturbance compensation after suspected ground contact.
+ * Smaller values disable compensation more rapidly.
+ *
+ * @unit s
+ * @min 0.01
+ * @max 2.0
+ * @decimal 2
+ * @increment 0.01
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_TOFF, 0.15f);
+
+/**
+ * ESO ground contact compensation engagement time constant
+ *
+ * First-order time constant for restoring roll and pitch ESO
+ * disturbance compensation after returning to free flight.
+ * Larger values provide a smoother recovery.
+ *
+ * @unit s
+ * @min 0.05
+ * @max 5.0
+ * @decimal 2
+ * @increment 0.05
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(ESO_GC_TON, 0.50f);
+
+/**
+ * Total thrust command LPF cutoff angular frequency
+ *
+ * Cutoff angular frequency of the desired total thrust filter.
+ * Set to zero to disable filtering.
+ *
+ * @unit rad/s
+ * @min 0.0
+ * @max 1000.0
+ * @decimal 2
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(LW_THR_WC, 0.0f);
+
+/**
+ * Total thrust actuator time constant
+ *
+ * Equivalent first-order actuator time constant used for
+ * total thrust dynamic compensation.
+ *
+ * @unit s
+ * @min 0.001
+ * @max 1.0
+ * @decimal 3
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(LW_THR_TM, 0.04f);
+
+/**
+ * Total thrust dynamic tracking gain
+ *
+ * Tracking error convergence gain of the total thrust
+ * actuator dynamic compensation.
+ *
+ * @unit 1/s
+ * @min 0.0
+ * @max 100.0
+ * @decimal 2
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_FLOAT(LW_K_THR, 20.0f);
+
+/**
+ * Enable total thrust actuator dynamic compensation
+ *
+ * Enables actuator dynamic compensation for total thrust.
+ * The total thrust LPF remains active when disabled.
+ *
+ * @value 0 Disable
+ * @value 1 Enable
+ * @group LW Disturbance Estimation
+ */
+PARAM_DEFINE_INT32(LW_THR_CTRL_EN, 0);
+
 /**
  * Alpha controller enable
  *
  * 1: new controller, 0: original controller
  *
- * @min 0
- * @max 1
- * @group LW Disturdance Estimation
+ * @value 0 Disable
+ * @value 1 Enable
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_ALPHA_CTRL_EN, 0.0f);
+PARAM_DEFINE_INT32(LW_ALPHA_CTRL_EN, 0);
 
 /**
  * Enable wind estimation
  *
  * @value 0 Disable
  * @value 1 Enable
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_INT32(WE_EN, 0);
 
@@ -385,9 +578,9 @@ PARAM_DEFINE_INT32(WE_EN, 0);
  * @min 0.1
  * @max 100.0
  * @decimal 1
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_K_ALPHA_XY, 20.0f);
+PARAM_DEFINE_FLOAT(LW_K_ALPHA_XY, 25.0f);
 
 /**
  * Yaw alpha tracking bandwidth
@@ -396,7 +589,7 @@ PARAM_DEFINE_FLOAT(LW_K_ALPHA_XY, 20.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 1
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_K_ALPHA_Z, 10.0f);
 
@@ -405,11 +598,11 @@ PARAM_DEFINE_FLOAT(LW_K_ALPHA_Z, 10.0f);
  *
  * @unit rad/s
  * @min 0.1
- * @max 100.0
+ * @max 200.0
  * @decimal 1
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_ADOT_XY_FZ, 100.0f);
+PARAM_DEFINE_FLOAT(LW_ADOT_XY_WC, 50.0f);
 
 /**
  * Yaw alpha dot desired low-pass cutoff frequency
@@ -418,9 +611,9 @@ PARAM_DEFINE_FLOAT(LW_ADOT_XY_FZ, 100.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 1
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_ADOT_Z_FZ, 30.0f);
+PARAM_DEFINE_FLOAT(LW_ADOT_Z_WC, 30.0f);
 
 
 /**
@@ -428,7 +621,7 @@ PARAM_DEFINE_FLOAT(LW_ADOT_Z_FZ, 30.0f);
  *
  * @min 0
  * @max 1.0
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_EN, 0.0f);
 
@@ -437,7 +630,7 @@ PARAM_DEFINE_FLOAT(LW_TEST_EN, 0.0f);
  *
  * @min 0
  * @max 1.0
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_EN, 0.0f);
 
@@ -449,21 +642,21 @@ PARAM_DEFINE_FLOAT(LW_FEST_EN, 0.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_TEST_WNXY, 50.0f);
+PARAM_DEFINE_FLOAT(LW_TEST_WNXY, 80.0f);
 
 /**
- * Filter bandwidth for z disturdance torque estimation
+ * Filter bandwidth for z disturbance torque estimation
  *
  * 2*wn*sigma for angular error, wn^2 for attitude error
  *
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_TEST_WNZ, 20.0f);
+PARAM_DEFINE_FLOAT(LW_TEST_WNZ, 10.0f);
 
 /**
  * Filter damping for xy disturdance torque estimation
@@ -473,19 +666,19 @@ PARAM_DEFINE_FLOAT(LW_TEST_WNZ, 20.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_SIGXY, 1.0f);
 
 /**
- * Filter damping for z disturdance torque estimation
+ * Filter damping for z disturbance torque estimation
  *
  * 2*wn*sigma for angular error, wn^2 for attitude error
  *
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_SIGZ, 1.0f);
 
@@ -495,7 +688,7 @@ PARAM_DEFINE_FLOAT(LW_TEST_SIGZ, 1.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_LAMXY, 1.0f);
 
@@ -505,7 +698,7 @@ PARAM_DEFINE_FLOAT(LW_TEST_LAMXY, 1.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_LAMZ, 1.0f);
 
@@ -515,7 +708,7 @@ PARAM_DEFINE_FLOAT(LW_TEST_LAMZ, 1.0f);
  * @min 0.0
  * @max 500.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_WBCF, 0.0f);
 
@@ -526,7 +719,7 @@ PARAM_DEFINE_FLOAT(LW_TEST_WBCF, 0.0f);
  * @min 0.0
  * @max 500.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_TEST_CFXY, 0.0f);
 
@@ -537,9 +730,9 @@ PARAM_DEFINE_FLOAT(LW_TEST_CFXY, 0.0f);
  * @min 0.0
  * @max 500.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_TEST_CFZ, 0.0f);
+PARAM_DEFINE_FLOAT(LW_TEST_CFZ, 1.0f);
 
 /**
  * Filtering coefficient of thrust in disturbance torque estimation
@@ -547,9 +740,9 @@ PARAM_DEFINE_FLOAT(LW_TEST_CFZ, 0.0f);
  * @min 0.0
  * @max 1.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_TEST_TDT, 0.06f);
+PARAM_DEFINE_FLOAT(LW_TEST_TDT, 0.04f);
 
 /**
  * Filter bandwidth for xy disturdance force estimation
@@ -559,7 +752,7 @@ PARAM_DEFINE_FLOAT(LW_TEST_TDT, 0.06f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_WNXY, 2.0f);
 
@@ -571,7 +764,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_WNXY, 2.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_WNZ, 1.0f);
 
@@ -581,7 +774,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_WNZ, 1.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_SIGXY, 20.0f);
 
@@ -591,7 +784,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_SIGXY, 20.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_SIGZ, 20.0f);
 
@@ -601,7 +794,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_SIGZ, 20.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_LAMXY, 1.0f);
 
@@ -611,7 +804,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_LAMXY, 1.0f);
  * @min 0.1
  * @max 100.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_LAMZ, 1.0f);
 
@@ -621,7 +814,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_LAMZ, 1.0f);
  * @min 0.0
  * @max 1.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_P, 1.0f);
 
@@ -632,7 +825,7 @@ PARAM_DEFINE_FLOAT(LW_FEST_P, 1.0f);
  * @min 0.0
  * @max 500.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
 PARAM_DEFINE_FLOAT(LW_FEST_CF, 1.0f);
 
@@ -642,9 +835,9 @@ PARAM_DEFINE_FLOAT(LW_FEST_CF, 1.0f);
  * @min 0.0
  * @max 1.0
  * @decimal 2
- * @group LW Disturdance Estimation
+ * @group LW Disturbance Estimation
  */
-PARAM_DEFINE_FLOAT(LW_FEST_TDT, 0.06f);
+PARAM_DEFINE_FLOAT(LW_FEST_TDT, 0.04f);
 
 //******************************************************************************************************************//
 //******************************************************Mixer*******************************************************//
@@ -807,7 +1000,7 @@ PARAM_DEFINE_FLOAT(LW_COOR_TURN, 0.0f);
  * @decimal 2
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_THR_HOVER, 0.186f);
+PARAM_DEFINE_FLOAT(LW_THR_HOVER, 0.323f);
 
 /**
  * Maximum roll angle, only used in attitude control mode
@@ -878,15 +1071,14 @@ PARAM_DEFINE_FLOAT(LW_WZ_MAX, 70.0f);
 /**
  * Reference yaw angular rate low-pass filter cutoff frequence
  *
- * @reboot_required true
  * @unit Hz
  * @min 0
  * @max 100.0
  * @decimal 1
+ * @reboot_required true
  * @group LW Attitude Control
  */
 PARAM_DEFINE_FLOAT(LW_WZSP_CF, 2.0f);
-
 
 /**
  * Maximum x-axis angular rate setpoint, only used in acro mode
@@ -932,7 +1124,7 @@ PARAM_DEFINE_FLOAT(LW_ACRO_Y_MAX, 100.0f);
  * @increment 0.1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_PITCH_P, 3.5f);
+PARAM_DEFINE_FLOAT(LW_PITCH_P, 6.0f);
 
 /**
  * Pitch rate P gain
@@ -944,17 +1136,19 @@ PARAM_DEFINE_FLOAT(LW_PITCH_P, 3.5f);
  * @decimal 1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_WY_P, 15.0f);
+PARAM_DEFINE_FLOAT(LW_WY_P, 25.0f);
 
 /**
- * Pitch rate P gain at high airspeed
+ * Pitch rate P gain at high speed
+ *
+ * Pitch rate proportional gain, i.e. control output for angular speed error 1 rad/s.
  *
  * @min 0.1
  * @max 100.0
  * @decimal 1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_WY_P2, 12.0f);
+PARAM_DEFINE_FLOAT(LW_WY_P2, 20.0f);
 
 /**
  * Pitch rate I gain
@@ -1001,29 +1195,31 @@ PARAM_DEFINE_FLOAT(LW_WY_N, 1.0f);
  * @increment 0.1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_ROLL_P, 3.5f);
+PARAM_DEFINE_FLOAT(LW_ROLL_P, 6.0f);
 
 /**
  * Roll rate P gain
  *
  * Roll rate proportional gain, i.e. control output for angular speed error 1 rad/s.
  *
- * @min 0.1
+ * @min 1.0
  * @max 100.0
  * @decimal 1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_WX_P, 15.0f);
+PARAM_DEFINE_FLOAT(LW_WX_P, 25.0f);
 
 /**
- * Roll rate P gain at high airspeed
+ * Roll rate P gain at high speed
  *
- * @min 0.1
+ * Roll rate proportional gain, i.e. control output for angular speed error 1 rad/s.
+ *
+ * @min 1.0
  * @max 100.0
  * @decimal 1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_WX_P2, 12.0f);
+PARAM_DEFINE_FLOAT(LW_WX_P2, 20.0f);
 
 /**
  * Roll rate I gain
@@ -1042,7 +1238,7 @@ PARAM_DEFINE_FLOAT(LW_WX_I, 3.0f);
  * Roll rate differential gain. Small values help reduce fast oscillations. If value is too big oscillations will appear again.
  *
  * @min 0.0
- * @max 1.0
+ * @max 10.0
  * @decimal 2
  * @group LW Attitude Control
  */
@@ -1053,7 +1249,7 @@ PARAM_DEFINE_FLOAT(LW_WX_D, 0.00f);
  *
  *
  * @min 1.0
- * @max 10.0
+ * @max 100.0
  * @decimal 1
  * @group LW Attitude Control
  */
@@ -1077,12 +1273,12 @@ PARAM_DEFINE_FLOAT(LW_YAW_P, 2.0f);
  *
  * Yaw rate proportional gain, i.e. control output for angular speed error 1 rad/s.
  *
- * @min 0.1
+ * @min 1.0
  * @max 100.0
  * @decimal 1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_WZ_P, 10.0f);
+PARAM_DEFINE_FLOAT(LW_WZ_P, 20.0f);
 
 /**
  * Yaw rate I gain
@@ -1093,7 +1289,7 @@ PARAM_DEFINE_FLOAT(LW_WZ_P, 10.0f);
  * @decimal 1
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_WZ_I, 2.0f);
+PARAM_DEFINE_FLOAT(LW_WZ_I, 0.0f);
 
 /**
  * Yaw rate D gain
@@ -1101,7 +1297,7 @@ PARAM_DEFINE_FLOAT(LW_WZ_I, 2.0f);
  * Yaw rate differential gain. Small values help reduce fast oscillations. If value is too big oscillations will appear again.
  *
  * @min 0.0
- * @max 1.0
+ * @max 10.0
  * @decimal 2
  * @group LW Attitude Control
  */
@@ -1112,7 +1308,7 @@ PARAM_DEFINE_FLOAT(LW_WZ_D, 0.0f);
  *
  *
  * @min 1.0
- * @max 10.0
+ * @max 100.0
  * @decimal 1
  * @group LW Attitude Control
  */
@@ -1155,6 +1351,41 @@ PARAM_DEFINE_FLOAT(LW_WY_FF, 1.0f);
 PARAM_DEFINE_FLOAT(LW_WZ_FF, 1.0f);
 
 /**
+ * Minimum airspeed for angular rate gain scheduling
+ *
+ * Below this airspeed, the low-airspeed angular rate controller gains
+ * LW_WX_P and LW_WY_P are used. Between LW_W_VA_MIN and LW_W_VA_MAX,
+ * the gains are smoothly transitioned to the corresponding high-airspeed
+ * gains LW_WX_P2 and LW_WY_P2.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 30.0
+ * @decimal 1
+ * @increment 0.5
+ * @group LW Attitude Control
+ */
+PARAM_DEFINE_FLOAT(LW_W_VA_MIN, 6.0f);
+
+/**
+ * Maximum airspeed for angular rate gain scheduling
+ *
+ * Above this airspeed, the high-airspeed angular rate controller gains
+ * LW_WX_P2 and LW_WY_P2 are used. Between LW_W_VA_MIN and LW_W_VA_MAX,
+ * the gains are smoothly transitioned from the low-airspeed gains to
+ * the high-airspeed gains.
+ *
+ *
+ * @unit m/s
+ * @min 0.5
+ * @max 40.0
+ * @decimal 1
+ * @increment 0.5
+ * @group LW Attitude Control
+ */
+PARAM_DEFINE_FLOAT(LW_W_VA_MAX, 12.0f);
+
+/**
  *
  * The low-pass filtering cutoff frequency of the ideal differentiator. When fz=0, x_ Out=x_ In.
  *
@@ -1189,7 +1420,7 @@ PARAM_DEFINE_FLOAT(LW_TAUZSP_FZ, 10.0f);
  * @decimal 2
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_TAUXYSP_TM, 0.06f);
+PARAM_DEFINE_FLOAT(LW_TAUXYSP_TM, 0.04f);
 
 /**
  * Prediction time of torque control command for z axis Smith predictor
@@ -1202,7 +1433,7 @@ PARAM_DEFINE_FLOAT(LW_TAUXYSP_TM, 0.06f);
  * @decimal 2
  * @group LW Attitude Control
  */
-PARAM_DEFINE_FLOAT(LW_TAUZSP_TM, 0.06f);
+PARAM_DEFINE_FLOAT(LW_TAUZSP_TM, 0.04f);
 
 /**
  * Rocker center dead zone for roll setpoint
@@ -1340,7 +1571,7 @@ PARAM_DEFINE_FLOAT(LW_TILTMAX_AIR, 30.0f);
  * @decimal 2
  * @group LW Position Control
  */
-PARAM_DEFINE_FLOAT(LW_X_VEL_MAX, 5.0f);
+PARAM_DEFINE_FLOAT(LW_X_VEL_MAX, 15.0f);
 
 /**
  * Maximum velocity setpoint on y-axies for manual control mode
@@ -1355,14 +1586,15 @@ PARAM_DEFINE_FLOAT(LW_X_VEL_MAX, 5.0f);
  * @decimal 2
  * @group LW Position Control
  */
-PARAM_DEFINE_FLOAT(LW_Y_VEL_MAX, 5.0f);
+PARAM_DEFINE_FLOAT(LW_Y_VEL_MAX, 15.0f);
 
 /**
  * Cutoff frequency of velocity command in position control mode
  *
  * @reboot_required true
+ * @unit Hz
  * @min 0.0
- * @max 50.0
+ * @max 10.0
  * @increment 0.01
  * @decimal 2
  * @group LW Position Control
@@ -1406,7 +1638,7 @@ PARAM_DEFINE_FLOAT(LW_Z_VEL_MAX_UP, 3.0f);
  * @decimal 2
  * @group LW Position Control
  */
-PARAM_DEFINE_FLOAT(LW_X_ACCEL_MAX, 4.0f);
+PARAM_DEFINE_FLOAT(LW_X_ACCEL_MAX, 6.0f);
 
 /**
  * Minimum x-axis acceleration in position control modes
@@ -1417,7 +1649,7 @@ PARAM_DEFINE_FLOAT(LW_X_ACCEL_MAX, 4.0f);
  * @decimal 2
  * @group LW Position Control
  */
-PARAM_DEFINE_FLOAT(LW_X_ACCEL_MIN, -4.0f);
+PARAM_DEFINE_FLOAT(LW_X_ACCEL_MIN, -6.0f);
 
 /**
  * Maximum jerk limit on x-axis
@@ -1448,7 +1680,7 @@ PARAM_DEFINE_FLOAT(LW_X_JERK_MAX, 10.0f);
  * @decimal 2
  * @group LW Position Control
  */
-PARAM_DEFINE_FLOAT(LW_Y_ACCEL_MAX, 4.0f);
+PARAM_DEFINE_FLOAT(LW_Y_ACCEL_MAX, 6.0f);
 
 /**
  * Minimum y-axis acceleration in velocity controlled modes
@@ -1459,7 +1691,7 @@ PARAM_DEFINE_FLOAT(LW_Y_ACCEL_MAX, 4.0f);
  * @decimal 2
  * @group LW Position Control
  */
-PARAM_DEFINE_FLOAT(LW_Y_ACCEL_MIN, -4.0f);
+PARAM_DEFINE_FLOAT(LW_Y_ACCEL_MIN, -6.0f);
 
 /**
  * Maximum jerk limit on y-axis
@@ -2275,7 +2507,7 @@ PARAM_DEFINE_FLOAT(MPC_THR_MIN, 0.12f);
  * @increment 0.01
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_THR_HOVER, 0.5f);
+PARAM_DEFINE_FLOAT(MPC_THR_HOVER, 0.323f);
 
 /**
  * Hover thrust source selector
@@ -2415,7 +2647,7 @@ PARAM_DEFINE_FLOAT(MPC_Z_VEL_D_ACC, 0.0f);
  * @decimal 1
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_Z_V_AUTO_UP, 3.f);
+PARAM_DEFINE_FLOAT(MPC_Z_V_AUTO_UP, 2.f);
 
 /**
  * Maximum ascent velocity
@@ -2561,7 +2793,7 @@ PARAM_DEFINE_INT32(MPC_MIS_SPD_MODE, 0);
  * @decimal 1
  * @group Mission
  */
-PARAM_DEFINE_FLOAT(MPC_MIS_ASPD_MAX, 12.0f);
+PARAM_DEFINE_FLOAT(MPC_MIS_ASPD_MAX, 15.0f);
 
 /**
  * Proportional gain for horizontal trajectory position error
@@ -2652,7 +2884,7 @@ PARAM_DEFINE_FLOAT(MPC_VEL_MAN_BACK, -1.0f);
  * @decimal 2
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_XY_VEL_MAX, 5.0f);
+PARAM_DEFINE_FLOAT(MPC_XY_VEL_MAX, 16.0f);
 
 /**
  * Maximum tilt angle in air
@@ -2703,6 +2935,22 @@ PARAM_DEFINE_FLOAT(MPC_LAND_SPEED, 0.7f);
 PARAM_DEFINE_FLOAT(MPC_LAND_CRWL, 0.3f);
 
 /**
+ * Enable home-relative altitude slowdown for automatic landing
+ *
+ * When enabled, automatic landing uses home-relative altitude
+ * to reduce descent speed to MPC_LAND_CRWL if valid terrain
+ * distance is unavailable.
+ *
+ * Only enable for landing sites at the same ground elevation
+ * as the home position.
+ *
+ * @value 0 Disable
+ * @value 1 Enable
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_INT32(LW_LAND_HREL, 0);
+
+/**
  * Enable user assisted descent for autonomous land routine
  *
  * When enabled, descent speed will be:
@@ -2744,7 +2992,7 @@ PARAM_DEFINE_FLOAT(MPC_LAND_RADIUS, 1000.f);
  * @decimal 2
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_TKO_SPEED, 1.5f);
+PARAM_DEFINE_FLOAT(MPC_TKO_SPEED, 1.0f);
 
 /**
  * Maximal tilt angle in manual or altitude mode
@@ -3002,6 +3250,21 @@ PARAM_DEFINE_FLOAT(MPC_YAW_EXPO, 0.6f);
 PARAM_DEFINE_FLOAT(MPC_YAWRAUTO_MAX, 30.0f);
 
 /**
+ * Max yaw acceleration in auto mode
+ *
+ * Limit the acceleration of the yaw setpoint in autonomous mode
+ * to avoid large control output and mixer saturation.
+ * unit deg/s^2
+ *
+ * @min 5.0
+ * @max 360.0
+ * @decimal 1
+ * @increment 5
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MPC_YAWRAUTO_ACC, 10.0f);
+
+/**
  * Altitude for 1. step of slow landing (descend)
  *
  * Below this altitude descending velocity gets limited to a value
@@ -3057,19 +3320,30 @@ PARAM_DEFINE_FLOAT(MPC_LAND_ALT3, 1.0f);
  * @max 5
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_TKO_RAMP_T, 3.0f);
+PARAM_DEFINE_FLOAT(MPC_TKO_RAMP_T, 1.0f);
 
 /**
- * Smooth takeoff initial ramp release time
+ * Smooth takeoff ramp time to release initial downward velocity limit
  *
- * This value should be smaller than MPC_TKO_RAMP_T.
+ * This parameter controls the first phase of the smooth takeoff ramp,
+ * where the upward velocity limit is increased from the initial
+ * suppressing value to zero. A smaller value releases the ground
+ * suppression faster and can reduce ground scratching before liftoff.
+ *
+ * This value should be smaller than MPC_TKO_RAMP_T. If it is too small,
+ * thrust can build up abruptly at the beginning of takeoff. If it is too
+ * large, the vehicle can stay in a low-thrust ground-contact state for too
+ * long and move horizontally before liftoff.
+ *
+ * A value of 0 disables the first-phase split and uses the normal ramp.
  *
  * @unit s
- * @min 0.0
- * @max 5.0
+ * @min 0
+ * @max 5
  * @group Multicopter Position Control
  */
-PARAM_DEFINE_FLOAT(MPC_TKO_RAMP_T0, 1.0f);
+PARAM_DEFINE_FLOAT(MPC_TKO_RAMP_T0, 0.25f);
+
 
 /**
  * Manual-Position control sub-mode

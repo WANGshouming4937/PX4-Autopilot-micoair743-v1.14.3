@@ -669,6 +669,7 @@ MissionBlock::mission_item_to_position_setpoint(const mission_item_s &item, posi
 	sp->alt = get_absolute_altitude_for_item(item);
 	sp->yaw = item.yaw;
 	sp->yaw_valid = PX4_ISFINITE(item.yaw);
+	sp->precision_yaw_control = false; // Normal mission/RTL items do not own visual yaw.
 	sp->loiter_radius = (fabsf(item.loiter_radius) > NAV_EPSILON_POSITION) ? fabsf(item.loiter_radius) :
 			    _navigator->get_loiter_radius();
 	sp->loiter_direction_counter_clockwise = item.loiter_radius < 0;

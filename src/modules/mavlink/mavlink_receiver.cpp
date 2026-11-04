@@ -2451,6 +2451,9 @@ MavlinkReceiver::handle_message_landing_target(mavlink_message_t *msg)
 	observation.timestamp_sample = landing_target.time_usec > 0
 				       ? _mavlink_timesync.sync_stamp(landing_target.time_usec)
 				       : observation.timestamp;
+	observation.source_timestamp = landing_target.time_usec;
+	observation.source_system = msg->sysid;
+	observation.source_component = msg->compid;
 	observation.frame = landing_target.frame;
 	observation.target_num = landing_target.target_num;
 

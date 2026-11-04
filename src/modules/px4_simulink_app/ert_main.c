@@ -1,11 +1,11 @@
 /*
  * File: ert_main.c
  *
- * Code generated for Simulink model 'LW_ctrl_V1_11_260814'.
+ * Code generated for Simulink model 'LW_ctrl_V1_14_261102_lw_s100'.
  *
- * Model version                  : 8.1146
+ * Model version                  : 8.1269
  * Simulink Coder version         : 23.2 (R2023b) 01-Aug-2023
- * C/C++ source code generated on : Fri Aug 14 14:51:27 2026
+ * C/C++ source code generated on : Mon Nov  2 16:24:25 2026
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: ARM Compatible->ARM Cortex
@@ -15,8 +15,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "LW_ctrl_V1_11_260814.h"
-#include "LW_ctrl_V1_11_260814_private.h"
+#include "LW_ctrl_V1_14_261102_lw_s100.h"
+#include "LW_ctrl_V1_14_261102_lw_s100_private.h"
 #include "rtwtypes.h"
 #include "limits.h"
 #include "rt_nonfinite.h"
@@ -74,13 +74,13 @@ unsigned long threadJoinStatus[8];
 int terminatingmodel = 0;
 void *baseRateTask(void *arg)          //multi-rate single-tasking
 {
-  runModel = (rtmGetErrorStatus(LW_ctrl_V1_11_260814_M) == (NULL));
+  runModel = (rtmGetErrorStatus(LW_ctrl_V1_14_261102_lw_s100_M) == (NULL));
   while (runModel) {
     sem_wait(&baserateTaskSem);
-    LW_ctrl_V1_11_260814_step();
+    LW_ctrl_V1_14_261102_lw_s100_step();
 
     /* Get model outputs here */
-    runModel = (rtmGetErrorStatus(LW_ctrl_V1_11_260814_M) == (NULL));
+    runModel = (rtmGetErrorStatus(LW_ctrl_V1_14_261102_lw_s100_M) == (NULL));
   }
 
   runModel = 0;
@@ -92,7 +92,7 @@ void *baseRateTask(void *arg)          //multi-rate single-tasking
 void exitFcn(int sig)
 {
   UNUSED(sig);
-  rtmSetErrorStatus(LW_ctrl_V1_11_260814_M, "stopping the model");
+  rtmSetErrorStatus(LW_ctrl_V1_14_261102_lw_s100_M, "stopping the model");
 }
 
 void *terminateTask(void *arg)
@@ -112,7 +112,7 @@ void *terminateTask(void *arg)
 
 int px4_simulink_app_main(int argc, char *argv[]) //PX4 Simulink App
 {
-  rtmSetErrorStatus(LW_ctrl_V1_11_260814_M, 0);
+  rtmSetErrorStatus(LW_ctrl_V1_14_261102_lw_s100_M, 0);
   int PX4_Simulink_Task_PID = 0;
   if (argc < 1)
     px4_app_usage("missing command");
@@ -123,8 +123,8 @@ int px4_simulink_app_main(int argc, char *argv[]) //PX4 Simulink App
       fflush(stdout);
 
       /* Initialize function pointers */
-      MW_model_init = &LW_ctrl_V1_11_260814_initialize;
-      MW_model_term = &LW_ctrl_V1_11_260814_terminate;
+      MW_model_init = &LW_ctrl_V1_14_261102_lw_s100_initialize;
+      MW_model_term = &LW_ctrl_V1_14_261102_lw_s100_terminate;
 
       /* Reset semaphore */
       g_baseRateLife = true;
@@ -143,7 +143,7 @@ int px4_simulink_app_main(int argc, char *argv[]) //PX4 Simulink App
 
   if (!strcmp(argv[1], "stop")) {
     if (g_baseRateLife == true) {
-      rtmSetErrorStatus(LW_ctrl_V1_11_260814_M, "Module finished");
+      rtmSetErrorStatus(LW_ctrl_V1_14_261102_lw_s100_M, "Module finished");
       g_baseRateLife = false;
       sem_post(&baserateTaskSem);
 

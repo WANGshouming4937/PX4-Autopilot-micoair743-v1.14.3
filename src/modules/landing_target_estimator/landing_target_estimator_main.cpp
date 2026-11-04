@@ -98,9 +98,15 @@ int landing_target_estimator_main(int argc, char *argv[])
 		daemon_task = px4_task_spawn_cmd("landing_target_estimator",
 						 SCHED_DEFAULT,
 						 SCHED_PRIORITY_DEFAULT,
-						 2100,
+						 4096,
 						 landing_target_estimator_thread_main,
 						 (argv) ? (char *const *)&argv[2] : nullptr);
+
+		if (daemon_task < 0) {
+			PX4_ERR("task start failed (%d)", daemon_task);
+			return PX4_ERROR;
+		}
+
 		return 0;
 	}
 
